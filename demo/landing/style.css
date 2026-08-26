@@ -1,0 +1,252 @@
+:root {
+  /* Cinematic Matte Beige Theme */
+  --color-bg: hsl(35, 25%, 78%);
+  --color-vignette: hsl(35, 25%, 65%);
+  --color-text: hsl(25, 20%, 15%);
+  --color-text-muted: hsl(25, 15%, 35%);
+  --color-accent: hsl(30, 40%, 45%);
+  
+  --font-display: 'Inter', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+
+  --z-canvas: -1;
+  --z-vignette: 0;
+  --z-content: 10;
+  --z-nav: 50;
+  --z-loader: 100;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-display);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 
+  1. Background Canvas
+*/
+.canvas-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: var(--z-canvas);
+}
+
+#sequence-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 
+  2. The Lens Vignette 
+  (Creates the cinematic framing effect)
+*/
+.lens-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-vignette);
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 40%, rgba(138, 121, 102, 0.4) 100%);
+  box-shadow: inset 0 0 100px rgba(100, 80, 60, 0.2);
+}
+
+/* 
+  3. Corner-Pinned Navigation
+*/
+.corner-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 2rem 3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: var(--z-nav);
+  mix-blend-mode: color-burn; /* Gives it that baked-in photographic look */
+}
+
+.nav-left .logo {
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: opacity 0.2s;
+}
+
+.nav-link:hover {
+  opacity: 0.6;
+}
+
+.nav-btn {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.nav-btn:hover {
+  transform: translateY(-2px);
+}
+
+/* Loading Overlay */
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-loader);
+  transition: opacity 0.8s ease;
+}
+
+.loader {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text);
+  text-align: center;
+}
+
+/* 
+  4. Typography & Foreground Content 
+*/
+.scroll-content {
+  position: relative;
+  z-index: var(--z-content);
+}
+
+.scene {
+  height: 120vh; /* Scrubber pacing */
+  display: flex;
+  align-items: center;
+  padding: 0 10vw; /* Inset deeply for the vignette */
+}
+
+/* Removed the glassmorphic boxes, letting typography breathe */
+.content-block {
+  max-width: 600px;
+}
+
+.content-block.center { margin: 0 auto; text-align: center; }
+.content-block.left { margin-right: auto; }
+.content-block.right { margin-left: auto; text-align: right; }
+
+.eyebrow {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-accent);
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* The Massive 'Prove it.' style header */
+h1 {
+  font-weight: 800;
+  font-size: clamp(4rem, 10vw, 9rem);
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+  text-shadow: 0 10px 30px rgba(255,255,255,0.4); /* Glow effect over matte bg */
+}
+
+h2 {
+  font-weight: 800;
+  font-size: clamp(3rem, 5vw, 4.5rem);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+}
+
+p {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  font-weight: 400;
+  max-width: 480px;
+}
+
+.content-block.right p {
+  margin-left: auto;
+}
+
+p.subtitle {
+  font-size: 1.5rem;
+  max-width: 100%;
+}
+
+.scroll-indicator {
+  margin-top: 4rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+.cta-button.primary {
+  background-color: var(--color-text);
+  color: var(--color-bg);
+  border: none;
+  padding: 1.25rem 3rem;
+  font-size: 1.125rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 2rem;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cta-button.primary:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+/* GSAP Initial States (Hidden by default, animated in main.js) */
+.content-block {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .corner-nav { padding: 1.5rem; }
+  .nav-right a { display: none; } /* Hide links on mobile, keep button */
+  .scene { padding: 0 2rem; }
+}

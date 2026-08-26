@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Razorpay AI | Reconciliation</title>
+    <link rel="stylesheet" href="./style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Massive geometric sans for headers, clean serif for accents -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;800&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- The Lens Vignette Overlay -->
+    <div class="lens-vignette"></div>
+
+    <!-- Corner Pinned Navigation -->
+    <nav class="corner-nav">
+      <div class="nav-left">
+        <span class="logo"><strong>Razorpay</strong> /recon</span>
+      </div>
+      <div class="nav-right">
+        <a href="#tracks" class="nav-link">Architecture</a>
+        <a href="#offer" class="nav-link">Audit Trail</a>
+        <button class="nav-btn">View Dashboard</button>
+      </div>
+    </nav>
+
+    <!-- The Image Sequence Scrubber Canvas -->
+    <div class="canvas-container">
+      <canvas id="sequence-canvas"></canvas>
+      <div id="loading-overlay">
+        <div class="loader">Initializing Engine<br><span id="load-progress">0%</span></div>
+      </div>
+    </div>
+
+    <!-- Foreground Content Sections -->
+    <main class="scroll-content">
+      
+      <section class="scene scene-hero" id="scene-1">
+        <div class="content-block center massive">
+          <p class="eyebrow">Think you can match it all?</p>
+          <h1>Prove it.</h1>
+          <p class="subtitle">A three-way AI-assisted payment reconciliation engine.</p>
+          <div class="scroll-indicator">S C R O L L</div>
+        </div>
+      </section>
+
+      <section class="scene scene-context" id="scene-2">
+        <div class="content-block left">
+          <p class="eyebrow">/ 01</p>
+          <h2>The Missing Link</h2>
+          <p>Traditional systems map bank lines directly to the general ledger. We parse the gateway in the middle — decoding gross amounts, net settlements, and rolling fees dynamically.</p>
+        </div>
+      </section>
+
+      <section class="scene scene-showcase" id="scene-3">
+        <div class="content-block right">
+          <p class="eyebrow">/ 02</p>
+          <h2>Deterministic First</h2>
+          <p>Five passes. Exact match, tolerance normalization, refund linkage, and bounded subset-sum for batched roll-ups. Only the exceptions fall through.</p>
+        </div>
+      </section>
+
+      <section class="scene scene-ai" id="scene-4">
+        <div class="content-block left">
+          <p class="eyebrow">/ 03</p>
+          <h2>Probabilistic Fallback</h2>
+          <p>For everything else, our AI layer steps in. Fellegi-Sunter math and semantic embeddings resolve the fuzzy matches that used to require human eyes.</p>
+        </div>
+      </section>
+
+      <section class="scene scene-trust" id="scene-5">
+        <div class="content-block right">
+          <p class="eyebrow">/ 04</p>
+          <h2>No Black Boxes</h2>
+          <p>Every match writes an immutable audit row. Exceptions route to risk-tiered queues. You maintain complete control over the final ledger state.</p>
+        </div>
+      </section>
+
+      <section class="scene scene-close" id="scene-6">
+        <div class="content-block center">
+          <h2>Ready?</h2>
+          <button class="cta-button primary">Access Engine</button>
+        </div>
+      </section>
+
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

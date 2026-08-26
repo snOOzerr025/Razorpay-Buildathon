@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment — never commit real credentials
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
+
+# Generated synthetic datasets (regenerate with a fixed seed instead of committing)
+synthetic_data/out/
+
+# OS
+.DS_Store
+Thumbs.db

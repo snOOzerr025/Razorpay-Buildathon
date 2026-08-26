@@ -1,0 +1,25 @@
+# Reproducible Postgres for judges: `docker compose up -d`, then `alembic upgrade head`.
+# Postgres (not SQLite) is load-bearing here, not a preference:
+#   - `expected_net_amount` is a GENERATED ALWAYS AS ... STORED column
+#   - `gen_random_uuid()`, JSONB, TIMESTAMPTZ
+#   - docs/07_TEST_AND_REDTEAM_PLAN.md section 3 requires a direct UPDATE on a posted
+#     match row to fail *at the DB grant level*, which needs real roles.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: recon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recon"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

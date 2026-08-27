@@ -105,7 +105,8 @@ def run_pass4(
 
     ambiguous_count = 0
     pool_exceeded_count = 0
-    dp_skipped_count = 0
+    state_cap_aborts = 0
+    split_matches = 0
 
     for bank in bank_records:
         if bank["id"] not in unmatched_bank_ids:
@@ -154,6 +155,11 @@ def run_pass4(
             max_solutions=2,   # we only need to know if 1 or 2+ solutions exist
         )
 
+        if solutions is None:
+            # DP space aborted due to extreme ambiguity
+            state_cap_aborts += 1
+            continue
+
         if not solutions:
             continue
 
@@ -200,6 +206,7 @@ def run_pass4(
             confidence_score=None,
         )
         result.candidates.append(candidate)
+        split_matches += 1
 
         # Remove matched records from unmatched sets
         for gid in matched_gw_ids:
@@ -214,20 +221,15 @@ def run_pass4(
         )
 
     result.stats = {
-        "matched_count":       len(result.candidates),
-        "ambiguous_count":     ambiguous_count,
-        "pool_exceeded_count": pool_exceeded_count,
-        "dp_skipped_count":    dp_skipped_count,
-        "remaining_gateway":   len(result.unmatched_gateway_ids),
-        "remaining_bank":      len(result.unmatched_bank_ids),
-        "amount_tolerance":    str(AMOUNT_TOLERANCE),
-        "pool_date_window":    POOL_DATE_WINDOW,
-        "max_pool_size":       MAX_POOL_SIZE,
+        "split_matches_found": split_matches,
+        "pool_size_exceeded":  pool_exceeded_count,
+        "ambiguous_groupings": ambiguous_count,
+        "state_cap_aborts":    state_cap_aborts,
     }
 
     logger.info(
-        "Pass 4 complete: %d split matches | %d ambiguous | %d gateway remaining | %d bank remaining",
-        result.matched_count, ambiguous_count,
+        "Pass 4 complete: %d split matches | %d ambiguous | %d state-cap aborts | %d gateway remaining | %d bank remaining",
+        split_matches, ambiguous_count, state_cap_aborts,
         len(result.unmatched_gateway_ids), len(result.unmatched_bank_ids),
     )
     return result
@@ -271,7 +273,7 @@ def _find_subsets(
     target_paise: int,
     tolerance_paise: int,
     max_solutions: int = 2,
-) -> list[frozenset[int]]:
+) -> list[frozenset[int]] | None:
     """
     Find up to ``max_solutions`` subsets of pool_paise that sum within
     [target_paise - tolerance_paise, target_paise + tolerance_paise].
@@ -314,7 +316,7 @@ def _find_subsets(
                 
         dp.update(new_states)
         if len(dp) > 50_000:
-            return []  # abort if state space blows up (too ambiguous)
+            return None  # abort if state space blows up (too ambiguous)
 
     return solutions
 

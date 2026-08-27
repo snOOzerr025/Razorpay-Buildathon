@@ -100,13 +100,27 @@ def run_pass5(
 
     # Index all bank records for heuristic lookups
     all_bank: dict[int, dict] = {b["id"]: b for b in bank_records}
+    
+    # Pre-build bucket indices to drop O(N^2) latency
+    unmatched_banks_by_amount = {}
+    for bid in unmatched_bank_ids:
+        b = all_bank[bid]
+        amt = int(_decimal(b["net_amount"]))
+        unmatched_banks_by_amount.setdefault(amt, []).append(b)
+
+    all_gw: dict[int, dict] = {g["id"]: g for g in gateway_records}
+    unmatched_gw_by_amount = {}
+    for gid in unmatched_gateway_ids:
+        g = all_gw[gid]
+        amt = int(_decimal(g.get("expected_net_amount") or "0"))
+        unmatched_gw_by_amount.setdefault(amt, []).append(g)
 
     # ---------- Sweep 1: unmatched gateway records ---------------------------
     for gw in gateway_records:
         if gw["id"] not in unmatched_gateway_ids:
             continue
 
-        category = _classify_gateway(gw, all_bank, unmatched_bank_ids)
+        category = _classify_gateway(gw, unmatched_banks_by_amount)
         dollar_value = _decimal(gw.get("expected_net_amount") or gw.get("gross_amount", "0"))
 
         exceptions.append(UnmatchedRecord(
@@ -125,7 +139,7 @@ def run_pass5(
         if bank["id"] not in unmatched_bank_ids:
             continue
 
-        category = _classify_bank(bank, gateway_records, unmatched_gateway_ids)
+        category = _classify_bank(bank, unmatched_gw_by_amount)
         dollar_value = abs(_decimal(bank["net_amount"]))
 
         exceptions.append(UnmatchedRecord(
@@ -181,8 +195,7 @@ def run_pass5(
 
 def _classify_gateway(
     gw: dict,
-    all_bank: dict[int, dict],
-    unmatched_bank_ids: set[int],
+    unmatched_banks_by_amount: dict[int, list[dict]],
 ) -> ExceptionCategory:
     """Classify an unmatched gateway record into an exception category."""
     status = gw.get("status", "")
@@ -198,30 +211,29 @@ def _classify_gateway(
     gw_net  = _decimal(gw.get("expected_net_amount") or "0")
     gw_date = _to_date(gw["transaction_ts"])
     currency = gw["currency"]
-
+    
+    gw_int = int(gw_net)
+    
     # Look for a bank record close in amount but outside date window → timing
-    for bid in unmatched_bank_ids:
-        bank = all_bank.get(bid)
-        if not bank:
-            continue
-        if bank["currency"] != currency:
-            continue
-        bank_net  = _decimal(bank["net_amount"])
-        if abs(bank_net - gw_net) > TIMING_AMOUNT_BAND:
-            continue
-        bank_date = _to_date(bank["value_date"])
-        lag = (bank_date - gw_date).days
-        # Beyond the Pass 2 window (>3 days) but within the lookahead → timing
-        if 3 < lag <= TIMING_LOOKAHEAD_DAYS + 3:
-            return ExceptionCategory.TIMING_DIFFERENCE
+    for bucket in (gw_int - 1, gw_int, gw_int + 1):
+        for bank in unmatched_banks_by_amount.get(bucket, []):
+            if bank["currency"] != currency:
+                continue
+            bank_net  = _decimal(bank["net_amount"])
+            if abs(bank_net - gw_net) > TIMING_AMOUNT_BAND:
+                continue
+            bank_date = _to_date(bank["value_date"])
+            lag = (bank_date - gw_date).days
+            # Beyond the Pass 2 window (>3 days) but within the lookahead → timing
+            if 3 < lag <= TIMING_LOOKAHEAD_DAYS + 3:
+                return ExceptionCategory.TIMING_DIFFERENCE
 
     return ExceptionCategory.UNRESOLVED
 
 
 def _classify_bank(
     bank: dict,
-    gateway_records: list[dict],
-    unmatched_gateway_ids: set[int],
+    unmatched_gw_by_amount: dict[int, list[dict]],
 ) -> ExceptionCategory:
     """Classify an unmatched bank record into an exception category."""
     bank_net  = _decimal(bank["net_amount"])
@@ -231,20 +243,21 @@ def _classify_bank(
     # Negative bank entry with no gateway match → bank-initiated (fee/reversal)
     if bank_net < Decimal("0"):
         return ExceptionCategory.BANK_INITIATED
+        
+    bank_int = int(bank_net)
 
     # Look for a gateway record close in amount but outside date window → timing
-    for gw in gateway_records:
-        if gw["id"] not in unmatched_gateway_ids:
-            continue
-        if gw["currency"] != currency:
-            continue
-        gw_net = _decimal(gw.get("expected_net_amount") or "0")
-        if abs(bank_net - gw_net) > TIMING_AMOUNT_BAND:
-            continue
-        gw_date = _to_date(gw["transaction_ts"])
-        lag = (bank_date - gw_date).days
-        if 3 < lag <= TIMING_LOOKAHEAD_DAYS + 3:
-            return ExceptionCategory.TIMING_DIFFERENCE
+    for bucket in (bank_int - 1, bank_int, bank_int + 1):
+        for gw in unmatched_gw_by_amount.get(bucket, []):
+            if gw["currency"] != currency:
+                continue
+            gw_net = _decimal(gw.get("expected_net_amount") or "0")
+            if abs(bank_net - gw_net) > TIMING_AMOUNT_BAND:
+                continue
+            gw_date = _to_date(gw["transaction_ts"])
+            lag = (bank_date - gw_date).days
+            if 3 < lag <= TIMING_LOOKAHEAD_DAYS + 3:
+                return ExceptionCategory.TIMING_DIFFERENCE
 
     # No gateway counterpart at all → bank-initiated
     return ExceptionCategory.BANK_INITIATED

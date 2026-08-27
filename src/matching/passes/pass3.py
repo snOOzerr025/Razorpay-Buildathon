@@ -106,6 +106,8 @@ def run_pass3(
             continue
         bank_by_currency.setdefault(bank["currency"], []).append(bank)
 
+    gw_by_ext_id = {g["external_transaction_id"]: g for g in gateway_records}
+
     for gw in gateway_records:
         if gw["id"] not in unmatched_gateway_ids:
             continue
@@ -123,7 +125,7 @@ def run_pass3(
             # Will be picked up by Pass 5 as transaction_error
             continue
 
-        parent = gw_by_id.get(int(parent_id))
+        parent = gw_by_ext_id.get(parent_id)
         if not parent:
             logger.warning(
                 "Pass3: parent_transaction_id=%s not found in loaded records for refund gw=%s",

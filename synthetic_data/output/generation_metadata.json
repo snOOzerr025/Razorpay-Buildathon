@@ -20,9 +20,9 @@
     "tds_rate": 0.01
   },
   "totals": {
-    "gateway_transactions": 36000,
-    "bank_settlements": 32985,
-    "merchant_ledger_entries": 36000,
-    "ground_truth_pairs": 36000
+    "gateway_transactions": 37800,
+    "bank_settlements": 34777,
+    "merchant_ledger_entries": 37800,
+    "ground_truth_pairs": 37800
   }
 }

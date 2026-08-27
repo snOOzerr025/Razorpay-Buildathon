@@ -68,6 +68,7 @@ RATE_MISSING_ID: float = 0.05         # external_event_id dropped or duplicated
 RATE_PROMPT_INJECTION: float = 0.01   # LLM-instruction text in narration
 RATE_BATCH_FRAGMENT: float = 0.06     # gateway txns bundled into one settlement
 RATE_ORPHAN: float = 0.03             # no matching bank settlement exists
+RATE_REFUND: float = 0.05             # refund transactions linked to parent
 
 # ---------------------------------------------------------------------------
 # Settlement parameters
@@ -178,7 +179,8 @@ class SyntheticGenerator:
         n_injection   = int(n * RATE_PROMPT_INJECTION)
         n_batch       = int(n * RATE_BATCH_FRAGMENT)
         n_orphan      = int(n * RATE_ORPHAN)
-        n_clean       = n - n_timing - n_corrupt - n_missing_id - n_injection - n_batch - n_orphan
+        n_refund      = int(n * RATE_REFUND)
+        n_clean       = n - n_timing - n_corrupt - n_missing_id - n_injection - n_batch - n_orphan - n_refund
 
         # Shuffle a label list so anomalies are spread throughout the dataset
         labels = (
@@ -189,6 +191,7 @@ class SyntheticGenerator:
             + ["injection"]     * n_injection
             + ["batch"]         * n_batch
             + ["orphan"]        * n_orphan
+            + ["refund"]        * n_refund
         )
         self.py_rng.shuffle(labels)
 
@@ -247,7 +250,7 @@ class SyntheticGenerator:
                     currency="INR",
                     value_date=str(value_date),
                     narration=narration,
-                    anomaly_flags=label if label not in ("clean",) else "",
+                    anomaly_flags=label if label not in ("clean", "refund") else "",
                 )
                 self._bank.append(bank)
 
@@ -258,6 +261,40 @@ class SyntheticGenerator:
                     "gateway_txn_id": txn.external_transaction_id,
                     "bank_settlement_id": batch_id,
                 }
+                
+                # If refund, generate a linked negative record pair
+                if label == "refund":
+                    r_match_id = f"{match_id}R"
+                    r_txn = self._make_gateway_txn(r_match_id, "clean")
+                    r_txn.gross_amount = f"-{txn.gross_amount}"
+                    r_txn.parent_transaction_id = txn.external_transaction_id
+                    r_txn.status = "refunded"
+                    
+                    r_date = datetime.fromisoformat(txn.transaction_ts) + timedelta(days=self.py_rng.randint(1, 10))
+                    r_txn.transaction_ts = r_date.isoformat()
+                    self._gateway.append(r_txn)
+                    
+                    r_value_date = r_date.date() + timedelta(days=2)
+                    r_bank = BankSettlement(
+                        gt_match_id=r_match_id,
+                        utr=f"R_{utr}",
+                        settlement_batch_id=f"RBATCH{r_match_id}",
+                        net_amount=f"-{settlement_net:.2f}",
+                        currency="INR",
+                        value_date=str(r_value_date),
+                        narration=f"REFUND FOR {txn.external_transaction_id}",
+                        anomaly_flags="refund",
+                    )
+                    self._bank.append(r_bank)
+                    
+                    r_led = self._make_ledger_entry(r_match_id, r_txn)
+                    self._ledger.append(r_led)
+                    
+                    self._ground_truth[r_match_id] = {
+                        "type": "refund",
+                        "gateway_txn_id": r_txn.external_transaction_id,
+                        "bank_settlement_id": r_bank.settlement_batch_id,
+                    }
 
         # Flush batch groups: every group of batch records becomes ONE settlement
         self._flush_batch_groups(_batch_group)

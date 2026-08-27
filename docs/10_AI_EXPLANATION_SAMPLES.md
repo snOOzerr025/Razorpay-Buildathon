@@ -2,6 +2,9 @@
 
 *This document demonstrates the exact inputs provided to the LLM (acting as the semantic AI layer) for records that the deterministic matching engine routes to the exception queue, alongside the AI-generated human-readable explanations required for Tier-3 (HITL) manual approval.*
 
+> [!NOTE]
+> **Provenance & Sandbox Constraints:** In accordance with the Buildathon's out-of-scope rules regarding production API keys, the engine's current runtime produces deterministic mock scores for Pass 5. The examples below are **illustrative design mockups**, written to explicitly demonstrate the intended JSON payload structure and expected LLM explanation format for the live production integration. They use real anomaly data pulled from the synthetic scale test runs.
+
 ---
 
 ## 1. Typo / Semantic Drift (Fellegi-Sunter Candidate)

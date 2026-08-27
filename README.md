@@ -63,6 +63,8 @@ In a SOX/audit-compliant financial system, a control must be reproducible and ma
 ## Run it yourself
 The engine comes with a reproducible, synthetic data generator that injects realistic anomalies (timing shifts, batched roll-ups, corruptions, refunds, and LLM prompt injections). 
 
+To guarantee reproducibility, the script uses a fixed random seed (`20260822`), ensuring that anyone who clones the repo and runs the scale test will get the exact same dataset, the exact same matches, and the exact same pass breakdown numbers shown above.
+
 To run the scaling pipeline at 36,000+ transaction bundles (110,000+ total records) and verify the numbers above:
 ```bash
 # Setup your environment (Windows/Linux compatible)

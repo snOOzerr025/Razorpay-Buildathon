@@ -1,0 +1,28 @@
+{
+  "seed": 20260822,
+  "count": 12000,
+  "injection_rates": {
+    "timing_shift": 0.08,
+    "string_corruption": 0.04,
+    "missing_id": 0.05,
+    "prompt_injection": 0.01,
+    "batch_fragment": 0.06,
+    "orphan": 0.03
+  },
+  "settlement_params": {
+    "mdr_rates": [
+      0.018,
+      0.02,
+      0.022,
+      0.025
+    ],
+    "gst_rate": 0.18,
+    "tds_rate": 0.01
+  },
+  "totals": {
+    "gateway_transactions": 12000,
+    "bank_settlements": 10994,
+    "merchant_ledger_entries": 12000,
+    "ground_truth_pairs": 12000
+  }
+}

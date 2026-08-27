@@ -13,7 +13,7 @@ This is a high-throughput, continuous-close three-way reconciliation engine (gat
 - **Precision/Recall vs. synthetic ground truth**: 92.4% / 67.0%
 - **Open exceptions**: 30,583 exactly. Categorized for human review as: 16,573 unresolved | 10,383 timing differences | 3,431 bank-initiated | 196 transaction errors.
 
-*(Note: Pass 5 correctly routes unresolvable records to these exception categories and stages them for semantic AI/human review. It does not artificially force matches. Additionally, the $O(N^2)$ hash-bucket optimization driving our sub-second throughput was applied to Pass 2, taking it from 25+ seconds down to milliseconds).*
+*(Note: Pass 5 correctly routes unresolvable records to these exception categories and stages them for semantic AI/human review. To see exactly what the AI generates for human reviewers on these exceptions, see [docs/10_AI_EXPLANATION_SAMPLES.md](docs/10_AI_EXPLANATION_SAMPLES.md). Additionally, the $O(N^2)$ hash-bucket optimization driving our sub-second throughput was applied to Pass 2, taking it from 25+ seconds down to milliseconds).*
 
 ## Architecture
 See detailed spec: [docs/02_ARCHITECTURE.md](docs/02_ARCHITECTURE.md)

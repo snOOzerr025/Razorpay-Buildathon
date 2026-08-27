@@ -74,8 +74,12 @@ def shutdown_event():
     logger.info("Application shutting down, disposing DB pools.")
     dispose_engines()
 
-# In subsequent commits, we will include the routers here:
-# app.include_router(reconcile_router, prefix="/api/v1/reconcile", tags=["Reconciliation"])
-# app.include_router(matches_router, prefix="/api/v1/matches", tags=["Matches"])
-# app.include_router(exceptions_router, prefix="/api/v1/exceptions", tags=["Exceptions"])
-# app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
+from src.api.routes.reconcile import router as reconcile_router
+from src.api.routes.matches import router as matches_router
+from src.api.routes.exceptions import router as exceptions_router
+from src.api.routes.dashboard import router as dashboard_router
+
+app.include_router(reconcile_router, prefix="/api/v1/reconcile", tags=["Reconciliation"])
+app.include_router(matches_router, prefix="/api/v1/matches", tags=["Matches"])
+app.include_router(exceptions_router, prefix="/api/v1/exceptions", tags=["Exceptions"])
+app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])

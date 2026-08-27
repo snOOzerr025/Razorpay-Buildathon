@@ -311,7 +311,7 @@ def _build_explanation(
             f"Fellegi-Sunter score {scored.composite_score:.2f} "
             f"({'≥' if scored.composite_score >= threshold_upper else '<'} "
             f"upper threshold {threshold_upper}). "
-            f"Fields: {', '.join(f'{k}={'+'✓' if v else '✗'}' for k, v in scored.field_agreements.items())}. "
+            f"Fields: {', '.join(f'{k}=' + ('✓' if v else '✗') for k, v in scored.field_agreements.items())}. "
             f"→ {scored.classification.upper()}"
         ),
     }

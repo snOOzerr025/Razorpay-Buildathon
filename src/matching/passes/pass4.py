@@ -144,15 +144,7 @@ def run_pass4(
         pool_paise   = [(gw["id"], _to_paise(_decimal(gw["expected_net_amount"])))
                         for gw in pool]
 
-        # DP guard
-        dp_cells = (target_paise + TOLERANCE_PAISE + 1) * len(pool_paise)
-        if dp_cells > MAX_DP_CELLS:
-            logger.warning(
-                "Pass4: bank=%s DP would need %d cells (limit %d) — skipping",
-                bank["id"], dp_cells, MAX_DP_CELLS,
-            )
-            dp_skipped_count += 1
-            continue
+        # No DP matrix allocation guard needed - dictionary DP handles sparse values instantly.
 
         # --- Step 3: bounded DP ----------------------------------------------
         solutions = _find_subsets(
@@ -319,8 +311,10 @@ def _find_subsets(
             # Record the new state if not already present (keep first path found)
             if new_sum not in dp and new_sum not in new_states:
                 new_states[new_sum] = new_set
-
+                
         dp.update(new_states)
+        if len(dp) > 50_000:
+            return []  # abort if state space blows up (too ambiguous)
 
     return solutions
 

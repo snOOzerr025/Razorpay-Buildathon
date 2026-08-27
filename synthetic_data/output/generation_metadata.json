@@ -1,6 +1,6 @@
 {
   "seed": 20260822,
-  "count": 12000,
+  "count": 36000,
   "injection_rates": {
     "timing_shift": 0.08,
     "string_corruption": 0.04,
@@ -20,9 +20,9 @@
     "tds_rate": 0.01
   },
   "totals": {
-    "gateway_transactions": 12000,
-    "bank_settlements": 10994,
-    "merchant_ledger_entries": 12000,
-    "ground_truth_pairs": 12000
+    "gateway_transactions": 36000,
+    "bank_settlements": 32985,
+    "merchant_ledger_entries": 36000,
+    "ground_truth_pairs": 36000
   }
 }

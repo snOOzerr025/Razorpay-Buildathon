@@ -84,12 +84,13 @@ def run_pass2(
         unmatched_ledger_ids=set(unmatched_ledger_ids),
     )
 
-    # Gateway index: currency → [gateway_row]
-    gw_by_currency: dict[str, list[dict]] = {}
+    # Gateway index: int(amount) -> list[gw] to avoid O(N^2) comparisons
+    gw_by_int_amount: dict[int, list[dict]] = {}
     for gw in gateway_records:
         if gw["id"] not in unmatched_gateway_ids:
             continue
-        gw_by_currency.setdefault(gw["currency"], []).append(gw)
+        amt = int(_decimal(gw.get("expected_net_amount") or gw.get("gross_amount", "0")))
+        gw_by_int_amount.setdefault(amt, []).append(gw)
 
     # Ledger index: order_id → ledger_row
     ledger_index: dict[str, dict] = {
@@ -110,15 +111,19 @@ def run_pass2(
         bank_net       = _decimal(bank["net_amount"])
         bank_date      = _to_date(bank["value_date"])
 
-        bucket = gw_by_currency.get(bank_currency, [])
-
         # Collect ALL gateway records that satisfy criteria for this settlement
         qualifying: list[dict] = []
-        for gw in bucket:
-            if gw["id"] not in result.unmatched_gateway_ids:
-                continue
-            if _tolerance_match(gw, bank_net, bank_date):
-                qualifying.append(gw)
+        bank_int = int(bank_net)
+        
+        # We only need to check [bank_int - 1, bank_int, bank_int + 1] because tolerance is 0.50
+        for bucket_key in (bank_int - 1, bank_int, bank_int + 1):
+            for gw in gw_by_int_amount.get(bucket_key, []):
+                if gw["id"] not in result.unmatched_gateway_ids:
+                    continue
+                if gw["currency"] != bank_currency:
+                    continue
+                if _tolerance_match(gw, bank_net, bank_date):
+                    qualifying.append(gw)
 
         if not qualifying:
             continue

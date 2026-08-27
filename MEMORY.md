@@ -13,12 +13,15 @@ for the Razorpay AI Buildathon, AI Finance Controller track. Full spec in `docs/
 buildathon applications close 5 September 2026.
 
 ## Current phase
-`Days 3–5: Deterministic Matching Engine` — Days 1–2 foundation is COMPLETE and tested.
+`Days 8–9: Probabilistic + Semantic Layer` — Days 3–5 deterministic matching engine is COMPLETE
+and tested (97 unit tests). Next: Fellegi-Sunter scoring + embedding-based semantic matching
+for Pass 5 residuals.
 
 ## Build status checklist
 Mirrors `docs/08_BUILD_SEQUENCE.md`. Check off only what's actually done and tested, not started.
 - [x] Days 1–2: Schema/migrations, raw ingestion + two-layer idempotency, synthetic data generator
-- [ ] Days 3–5: Matching Passes 1–3 (exact, tolerance, refund/reversal)
+- [x] Days 3–5: Matching Passes 1–4 (exact, tolerance, refund/reversal, subset-sum split/roll-up)
+                 + Pass 5 exception routing + engine orchestrator + migration 002
 - [ ] Days 6–7: Pass 4 (split/roll-up, bounded subset-sum)
 - [ ] Days 8–9: Fellegi-Sunter + semantic embedding layer
 - [ ] Days 10–11: Exception queue, HOOTL/HOTL/HITL approval workflow, audit trail, dashboard
@@ -38,16 +41,16 @@ just silently drift from it.)
 - Forecasting module is stretch-only, built last, never at the expense of the core engine
 
 ## Where I stopped last session
-Completed all Days 1–2 deliverables. All 39 unit tests pass. Next phase: Days 3–5 deterministic
-matching engine — Pass 1 (exact), Pass 2 (tolerance), Pass 3 (refund/reversal).
+Completed all Days 3–5 deliverables: Passes 1–4 + exception router (Pass 5) + engine orchestrator
++ migration 002. All 97 unit tests pass. Next: Days 8–9 probabilistic layer.
 
 ## Known issues / open questions
 _(none yet)_
 
 ## Next session should start with
-Read `docs/04_MATCHING_ENGINE_SPEC.md` in full, then implement `src/matching/` starting with
-Pass 1 (exact match) and Pass 2 (tolerance-aware). Run synthetic generator first to have test
-data: `python -m synthetic_data.generator --count 1000 --seed 20260822`.
+Read `docs/04_MATCHING_ENGINE_SPEC.md` §2 (Fellegi-Sunter) and §3 (semantic layer).
+Implement `src/matching/probabilistic/fellegi_sunter.py` — calibrate m/u from synthetic
+ground truth, then `src/matching/probabilistic/embeddings.py` for narration similarity.
 Commit rule: every new file pushed within 10 minutes of creation.
 
 ## Session log
@@ -58,10 +61,17 @@ single summary line and keep only the last 5–6 in full detail — don't let th
 - Full `docs/` spec pack (00–09) written and reviewed. Created cinematic-frontend and design-taste
   skills. No application code written.
 
-### Session 2 — 2026-08-27
+### Session 2 — 2026-08-27 (afternoon)
 - Built all Days 1–2 deliverables: Alembic migrations (9 tables, recon_app role), synthetic data
   generator (6 anomaly types, ground truth, manifest), two-layer idempotency ingestion layer,
   production DB engine with dual-role pooling, pytest conftest with rollback fixtures.
 - 39 unit tests: all pass. Fixed 2 bugs (batch size crash, reproducibility via unseeded random).
 - Commit rule active: every file pushed within 10 min, unique conventional commit messages.
-- Next: Days 3–5 — deterministic matching engine Passes 1–3.
+
+### Session 3 — 2026-08-28 (00:00 IST)
+- Built all Days 3–5 deliverables: Passes 1–4 (exact/tolerance/refund/subset-sum) + Pass 5
+  exception router + engine orchestrator (3-phase load/match/persist, mandatory audit_log) +
+  migration 002 (matches/match_members/exceptions tables + match_status columns).
+- 97 unit tests: all pass (1.06s). Fixed ambiguous test fixture in DP test suite.
+- Every file committed and pushed within 10 minutes per rule. No network issues affected data.
+- Next: Days 8–9 — Fellegi-Sunter + semantic embedding layer.

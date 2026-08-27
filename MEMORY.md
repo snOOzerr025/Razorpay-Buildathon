@@ -13,11 +13,11 @@ for the Razorpay AI Buildathon, AI Finance Controller track. Full spec in `docs/
 buildathon applications close 5 September 2026.
 
 ## Current phase
-`Days 1–2: Foundation` — per `docs/08_BUILD_SEQUENCE.md`. No code written yet.
+`Days 3–5: Deterministic Matching Engine` — Days 1–2 foundation is COMPLETE and tested.
 
 ## Build status checklist
 Mirrors `docs/08_BUILD_SEQUENCE.md`. Check off only what's actually done and tested, not started.
-- [ ] Days 1–2: Schema/migrations, raw ingestion + two-layer idempotency, synthetic data generator
+- [x] Days 1–2: Schema/migrations, raw ingestion + two-layer idempotency, synthetic data generator
 - [ ] Days 3–5: Matching Passes 1–3 (exact, tolerance, refund/reversal)
 - [ ] Days 6–7: Pass 4 (split/roll-up, bounded subset-sum)
 - [ ] Days 8–9: Fellegi-Sunter + semantic embedding layer
@@ -38,26 +38,30 @@ just silently drift from it.)
 - Forecasting module is stretch-only, built last, never at the expense of the core engine
 
 ## Where I stopped last session
-Full `docs/` spec pack (00–09) written and reviewed. Skills created: `cinematic-frontend` (art
-direction + camera + 5-6 scene framework) and `design-taste` (anti-slop checklist). No application
-code written yet. Next: start Days 1–2 build sequence — schema/migrations.
+Completed all Days 1–2 deliverables. All 39 unit tests pass. Next phase: Days 3–5 deterministic
+matching engine — Pass 1 (exact), Pass 2 (tolerance), Pass 3 (refund/reversal).
 
 ## Known issues / open questions
 _(none yet)_
 
 ## Next session should start with
-Read `docs/08_BUILD_SEQUENCE.md` Days 1–2 and begin implementing: schema migrations for
-`canonical_transactions`, `bank_settlements`, `merchant_ledger_entries`, `match_results`,
-`audit_log` tables with append-only constraints and two-layer idempotency.
+Read `docs/04_MATCHING_ENGINE_SPEC.md` in full, then implement `src/matching/` starting with
+Pass 1 (exact match) and Pass 2 (tolerance-aware). Run synthetic generator first to have test
+data: `python -m synthetic_data.generator --count 1000 --seed 20260822`.
+Commit rule: every new file pushed within 10 minutes of creation.
 
 ## Session log
 Keep entries to 2–4 lines. When this section exceeds ~15 entries, condense the oldest ones into a
 single summary line and keep only the last 5–6 in full detail — don't let this file grow unbounded.
 
 ### Session 1 — 2026-08-26
-- Full `docs/` spec pack (00–09) written and reviewed against a second independent research pass
-  (Gemini deep research doc) — added Pass 3/Pass 4 matching, two-layer idempotency, precise
-  Fellegi-Sunter math, clarified rollback-vs-compensating-entry distinction.
-- Created `.agents/skills/cinematic-frontend/` (SKILL.md + 4 reference files) and
-  `.agents/skills/design-taste/` for future frontend work.
-- No application code written yet. Next session starts at Days 1–2 in `docs/08_BUILD_SEQUENCE.md`.
+- Full `docs/` spec pack (00–09) written and reviewed. Created cinematic-frontend and design-taste
+  skills. No application code written.
+
+### Session 2 — 2026-08-27
+- Built all Days 1–2 deliverables: Alembic migrations (9 tables, recon_app role), synthetic data
+  generator (6 anomaly types, ground truth, manifest), two-layer idempotency ingestion layer,
+  production DB engine with dual-role pooling, pytest conftest with rollback fixtures.
+- 39 unit tests: all pass. Fixed 2 bugs (batch size crash, reproducibility via unseeded random).
+- Commit rule active: every file pushed within 10 min, unique conventional commit messages.
+- Next: Days 3–5 — deterministic matching engine Passes 1–3.

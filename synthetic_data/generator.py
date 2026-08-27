@@ -335,7 +335,13 @@ class SyntheticGenerator:
         i = 0
         batch_num = 0
         while i < len(batch_group):
-            size = self.py_rng.randint(5, min(15, len(batch_group) - i))
+            remaining = len(batch_group) - i
+            # Choose batch size: if fewer than 5 remain, take them all in one group.
+            # This avoids randint(5, N) ValueError when N < 5.
+            if remaining <= 5:
+                size = remaining
+            else:
+                size = self.py_rng.randint(5, min(15, remaining))
             group = batch_group[i : i + size]
             i += size
             batch_num += 1
@@ -457,12 +463,15 @@ class SyntheticGenerator:
     def _utr(self, match_id: str) -> str:
         return f"UTR{self.py_rng.randint(100000000, 999999999)}"
 
-    @staticmethod
-    def _corrupt_string(s: str) -> str:
-        """Drop vowels and occasionally swap adjacent characters."""
+    def _corrupt_string(self, s: str) -> str:
+        """Drop vowels and occasionally swap adjacent characters.
+
+        Uses self.py_rng (seeded) so output is reproducible across runs
+        with the same seed. (Static random.randint broke reproducibility.)
+        """
         result = "".join(c for c in s if c not in _VOWELS)
         if len(result) > 4:
-            i = random.randint(0, len(result) - 2)
+            i = self.py_rng.randint(0, len(result) - 2)
             chars = list(result)
             chars[i], chars[i + 1] = chars[i + 1], chars[i]
             result = "".join(chars)

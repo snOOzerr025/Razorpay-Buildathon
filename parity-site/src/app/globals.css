@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --bg-paper: #F6F1E4;
+  --surface: #ECE4CF;
+  --ink: #1C1F2B;
+  --ink-dim: #5B5F6E;
+  --accent-brass: #9C7A2E;
+  --accent-brass-glow: #C9A855;
+  --hairline: #DCD0B0;
+  --ledger-green: #3F7D50;
+  --exception-amber: #B5791F;
+  --error-muted: #A34A3D;
+  --grain-dark: rgba(28, 31, 43, 0.04);
+}
+
+@theme inline {
+  --color-paper: var(--bg-paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-brass: var(--accent-brass);
+  --color-brass-glow: var(--accent-brass-glow);
+  --color-hairline: var(--hairline);
+  --color-green: var(--ledger-green);
+  --color-amber: var(--exception-amber);
+  --color-error: var(--error-muted);
+  --color-grain: var(--grain-dark);
+
+  --font-display: var(--font-space-grotesk);
+  --font-body: var(--font-inter);
+  --font-mono: var(--font-plex-mono);
+}
+
+body {
+  background-color: var(--bg-paper);
+  color: var(--ink);
+  font-family: var(--font-body), sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Base resets */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display), sans-serif;
+  margin: 0;
+}
+
+.mono-num {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbar for lenis smoothness */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

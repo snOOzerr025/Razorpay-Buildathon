@@ -1,20 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-void: #08080B;
+  --color-surface: #111116;
+  --color-ink: #F3F2EE;
+  --color-ink-dim: #8B8B93;
+  --color-signal: #2E21DE;
+  --color-hairline: #232329;
+  --color-ledger-green: #1FAE7A;
+  --color-exception-amber: #E3A23C;
+  --color-exception-red: #C24C4C;
+
+  --font-display: "General Sans", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
 
 @layer base {
   html {
     scroll-behavior: smooth;
   }
-  
-  /* Override default border colors globally to our hairline token */
   * {
-    border-color: #232329;
+    border-color: var(--color-hairline);
   }
 }
 
 @layer utilities {
   .font-tabular {
     font-variant-numeric: tabular-nums;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

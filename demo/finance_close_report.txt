@@ -1,0 +1,41 @@
+
+================================================================================
+FINANCE CLOSE REPORT
+RUN ID: f7675a12-29c0-432e-865f-6eb5367d67ef
+================================================================================
+
+DATASET FINGERPRINT
+  seed: 20260822
+  count: 36000
+  refunds: 1800 | batches: 2160 | orphans: 1080 | timing: 2880
+
+--------------------------------------------------------------------------------
+OVERVIEW
+--------------------------------------------------------------------------------
+Total records processed:        110377
+Automated match rate:           81.56% (90022 / 110377)
+Pass Breakdown:                 Pass 1: 29.1% (32142) / Pass 2: 40.3% (44484) / Pass 3: 2.8% (3085) / Pass 4: 0.3% (329) / Phase B.5: 9.0% (9982)
+Naive baseline comparison:      55.5% (+26.0% lift)
+Net discrepancy value:          INR 38088088.43
+Exceptions by category:         timing_difference: 2785 | unresolved: 15747 | transaction_error: 44 | bank_initiated: 1779
+
+--------------------------------------------------------------------------------
+ACCURACY & SAFETY (vs. Ground Truth)
+--------------------------------------------------------------------------------
+Confusion Matrix (Bundles):     TP: 29284 | FP: 3236 (FP Risk: INR 2022681.26) | FN: 8516 (Pending Manual Review: INR 1181134.04)
+Precision vs. synthetic GT:     90.0%
+Recall vs. synthetic GT:        77.5%
+Safety Check:                   100% of False Negatives (Missed Matches) were safely caught by the Exception Queue.
+
+--------------------------------------------------------------------------------
+PERFORMANCE
+--------------------------------------------------------------------------------
+Throughput:                     944 records/sec (Duration: 116.81s)
+
+[Latency Profile]
+  - Pass 1 — Exact                      317.85 ms
+  - Pass 2 — Tolerance                  1636.60 ms
+  - Pass 3 — Refund                     6752.62 ms
+  - Pass 4 — Split                      57755.90 ms
+  - Phase B.5 — Probabilistic (AI/Semantic) 50226.99 ms
+================================================================================

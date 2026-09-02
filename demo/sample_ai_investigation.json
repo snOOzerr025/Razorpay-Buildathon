@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-09-02T22:32:05.909416+00:00",
+  "gateway_record": {
+    "gt_match_id": "GM000046",
+    "processor_id": "razorpay_gateway",
+    "external_transaction_id": "TXNGM0000468485",
+    "order_id": "ORDGM000046",
+    "gross_amount": "1118.49",
+    "currency": "INR",
+    "mdr_fee_pct": "0.0220",
+    "gst_rate": "0.1800",
+    "tds_amount": "11.18",
+    "status": "captured",
+    "parent_transaction_id": "",
+    "transaction_ts": "2026-01-06T09:22:48+00:00",
+    "description": "Taneja, Choudhry and Ramesh",
+    "anomaly_flags": "",
+    "id": 50,
+    "expected_net_amount": "1078.27",
+    "_parsed_net": "1078.27",
+    "_parsed_paise": 107827,
+    "_parsed_date": "2026-01-06"
+  },
+  "bank_record": {
+    "gt_match_id": "GM000046",
+    "utr": "UTR666099824",
+    "settlement_batch_id": "BATCHGM000046",
+    "net_amount": "1078.27",
+    "currency": "INR",
+    "value_date": "2026-01-09",
+    "narration": "Settlement for ORDGM000046 - Taneja, Choudhry and Ramesh",
+    "anomaly_flags": "",
+    "id": 44
+  },
+  "role_1_hard_facts": {
+    "amount_diff": "0.00",
+    "date_diff": 3,
+    "reference_similarity": 0.0,
+    "fee_equation_result": "bank_net (1078.27) - expected (1078.2739996000) = -0.0039996000",
+    "settlement_window_status": "WITHIN_WINDOW"
+  },
+  "role_2_ai_output": {
+    "likely_explanation": "No standard heuristic pattern matched. Requires human review.",
+    "evidence": [
+      "amount_diff != 0",
+      "fee_equation != 0",
+      "not a simple late settlement"
+    ],
+    "confidence": "LOW",
+    "action": "UNRESOLVED",
+    "claimed_equation": "unknown"
+  },
+  "role_3_verification": {
+    "passed": false,
+    "equation_check": "No equation provided by investigator",
+    "final_action": "UNRESOLVED"
+  }
+}

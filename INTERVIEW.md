@@ -51,8 +51,14 @@ existed.
 **Interview angle**: Strong answer to "what happens if your matcher is wrong" — shows you reasoned
 about audit trail integrity before it was a live problem, not after.
 
-### Case 1 — `[fill in once you start coding]`
-**What broke**:
-**Root cause**:
-**Fix**:
-**Interview angle**:
+### Case 1 (code phase) — GSAP Scroll-Jacking + Tailwind v4 Transparency Bug
+**What broke**: When implementing the 3D cinematic scrolling for the landing page, lower sections (like the Trust & Auditability cards) began scrolling *behind* and overlapping the pinned Architecture text, making it an unreadable mess.
+**Root cause**: TailwindCSS v4 changed how arbitrary CSS variables are compiled. Classes like `bg-[var(--bg-paper)]` failed silently, rendering the section backgrounds completely transparent. Because GSAP scroll-jacking uses fixed/absolute positioning, the transparent sections layered on top of each other.
+**Fix**: Diagnosed the Tailwind v4 compilation issue, replaced the raw variable injections with direct hex codes (`#050505`, `#0a0a0a`) for the cinematic dark theme, and completely rewrote the internal dashboard pages (`run/page.tsx`, `exceptions/page.tsx`) to match the new robust dark UI.
+**Interview angle**: Demonstrates deep, up-to-date knowledge of the frontend stack (Tailwind v4 vs v3 mechanics) and how to debug complex z-index/transparency issues in scroll-jacked GSAP environments.
+
+### Case 2 (code phase) — The "Static Poster" UX Failure
+**What broke**: The initial version of the internal dashboard felt fake to the user. They described it as a "static poster" because there was no real login form and no way to upload data—just pre-configured buttons to click.
+**Root cause**: Over-optimized for a "rapid click-through demo" intended for judges, sacrificing the actual SaaS application feel. Real users expect to input data, not just watch an animation play.
+**Fix**: Immediately overhauled the user flow. Rebuilt the `/login` page into a standard email/password portal (mocked via `localStorage` session state), and redesigned the `/run` (Live Run) page to require actual drag-and-drop file uploads for both Gateway Capture and Bank Settlement CSVs before the deterministic engine would execute.
+**Interview angle**: Shows strong product sense and scoping judgment—recognizing when a technical prototype is too abstracted and rapidly pivoting to build an interface that demands real user interaction to feel authentic.

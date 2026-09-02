@@ -72,21 +72,21 @@ export default function ArchitectureSequence() {
   }, [])
 
   return (
-    <section ref={sectionRef} id="architecture" className="w-full h-screen flex items-center bg-[var(--bg-paper)] overflow-hidden">
+    <section ref={sectionRef} id="architecture" className="w-full h-screen flex items-center bg-[#050505] overflow-hidden">
       <div className="max-w-[1400px] w-full mx-auto px-12">
-        <h2 className="text-3xl font-display mb-20 text-[var(--ink)]">Deterministic Matching Engine</h2>
+        <h2 className="text-3xl font-display mb-20 text-white">Deterministic Matching Engine</h2>
         
         <div ref={trackRef} className="relative w-full h-[300px]" style={{ perspective: '1200px' }}>
           {passes.map((p, i) => (
             <div
               key={i}
               ref={(el) => { cardsRef.current[i] = el }}
-              className="absolute top-0 left-0 w-[240px] h-full p-6 bg-[var(--surface)] border border-[var(--hairline)] flex flex-col shadow-lg z-10"
+              className="absolute top-0 left-0 w-[240px] h-full p-6 bg-[#0a0a0a] border border-white/10 flex flex-col shadow-lg z-10"
               style={{ transformOrigin: 'left center' }}
             >
-              <div className="text-[var(--accent-brass)] font-mono text-sm mb-4">0{i + 1}</div>
-              <h3 className="font-display text-xl mb-2 text-[var(--ink)]">{p.title}</h3>
-              <p className="text-[var(--ink-dim)] text-sm">{p.desc}</p>
+              <div className="text-[#00E5FF] font-mono text-sm mb-4">0{i + 1}</div>
+              <h3 className="font-display text-xl mb-2 text-white">{p.title}</h3>
+              <p className="text-gray-400 text-sm">{p.desc}</p>
             </div>
           ))}
 
@@ -102,7 +102,7 @@ export default function ArchitectureSequence() {
                 <path
                   ref={(el) => { linesRef.current[i] = el }}
                   d="M0,1 L260,1"
-                  stroke="var(--accent-brass)"
+                  stroke="#00E5FF"
                   strokeWidth="2"
                   fill="none"
                 />

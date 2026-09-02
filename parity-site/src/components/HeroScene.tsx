@@ -1,219 +1,129 @@
 'use client'
 
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, MeshTransmissionMaterial } from '@react-three/drei'
-import { useRef, useMemo, useEffect, useState } from 'react'
-import * as THREE from 'three'
+import { useRef, useEffect } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import StaticHeroFallback from './StaticHeroFallback'
 import MagneticButton from './MagneticButton'
+import { useRouter } from 'next/navigation'
+import { ShieldCheck, Layers, GitMerge } from 'lucide-react'
 
-function LedgerSheet({ index, total }: { index: number; total: number }) {
-  const mesh = useRef<THREE.Mesh>(null!)
-  const z = -3 + (index / (total - 1)) * 4
-  const baseRotation = useMemo(() => Math.random() * 0.15 - 0.075, [])
+gsap.registerPlugin(ScrollTrigger)
 
-  useFrame(({ clock, mouse }) => {
-    if (!mesh.current) return
-    const t = clock.getElapsedTime()
-    mesh.current.rotation.x = baseRotation + Math.sin(t * 0.3 + index) * 0.04
-    mesh.current.rotation.y = Math.cos(t * 0.2 + index * 1.7) * 0.06
-    mesh.current.position.x = THREE.MathUtils.lerp(mesh.current.position.x, mouse.x * 0.4, 0.03)
-    mesh.current.position.y = THREE.MathUtils.lerp(mesh.current.position.y, mouse.y * 0.25, 0.03)
-  })
-
-  return (
-    <mesh ref={mesh} position={[0, 0, z]}>
-      <planeGeometry args={[3.2, 4.4]} />
-      <MeshTransmissionMaterial
-        color="#F6F1E4"
-        transmission={0.85}
-        roughness={0.35}
-        thickness={0.4}
-        ior={1.2}
-      />
-    </mesh>
-  )
-}
-
-function Lines() {
-  const linesRef = useRef<THREE.LineSegments>(null!)
-  const linesUniform = useRef({ progress: 0 })
-  const [flash, setFlash] = useState(false)
-
-  const lineCount = 15
-  const spread = 4
-
-  const initialPositions = useMemo(() => {
-    const arr = new Float32Array(lineCount * 6)
-    for (let i = 0; i < lineCount; i++) {
-      // random scattered positions and rotations
-      const x1 = (Math.random() - 0.5) * spread
-      const y1 = (Math.random() - 0.5) * spread
-      const z1 = (Math.random() - 0.5) * spread
-      
-      const x2 = x1 + (Math.random() - 0.5) * spread
-      const y2 = y1 + (Math.random() - 0.5) * spread
-      const z2 = z1 + (Math.random() - 0.5) * spread
-
-      arr[i * 6 + 0] = x1
-      arr[i * 6 + 1] = y1
-      arr[i * 6 + 2] = z1
-      arr[i * 6 + 3] = x2
-      arr[i * 6 + 4] = y2
-      arr[i * 6 + 5] = z2
-    }
-    return arr
-  }, [])
-
-  const finalPositions = useMemo(() => {
-    const arr = new Float32Array(lineCount * 6)
-    for (let i = 0; i < lineCount; i++) {
-      // perfect horizontal alignment
-      const y = -1.5 + (i / (lineCount - 1)) * 3
-      arr[i * 6 + 0] = -2   // x1
-      arr[i * 6 + 1] = y    // y1
-      arr[i * 6 + 2] = 1.5  // z1 (in front of sheets)
-      arr[i * 6 + 3] = 2    // x2
-      arr[i * 6 + 4] = y    // y2
-      arr[i * 6 + 5] = 1.5  // z2
-    }
-    return arr
-  }, [])
-
-  const currentPositions = useMemo(() => new Float32Array(lineCount * 6), [])
-
+export default function HeroScene() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+  
   useEffect(() => {
+    // Parallax text on scroll
     const ctx = gsap.context(() => {
-      gsap.timeline({
+      gsap.to('.hero-text', {
+        y: -150,
+        opacity: 0,
+        ease: 'none',
         scrollTrigger: {
-          trigger: '#hero',
+          trigger: containerRef.current,
           start: 'top top',
-          end: '+=100%',
-          scrub: 0.6,
-        },
-      }).to(linesUniform.current, {
-        progress: 1,
-        ease: 'power2.inOut',
+          end: 'bottom top',
+          scrub: true
+        }
       })
-    })
+    }, containerRef)
     return () => ctx.revert()
   }, [])
 
-  // Ref to track if we already flashed this scroll
-  const flashed = useRef(false)
-
-  useFrame(() => {
-    if (!linesRef.current) return
-    const p = linesUniform.current.progress
-
-    for (let i = 0; i < currentPositions.length; i++) {
-      currentPositions[i] = THREE.MathUtils.lerp(initialPositions[i], finalPositions[i], p)
-    }
-
-    const attr = linesRef.current.geometry.attributes.position
-    attr.array = currentPositions
-    attr.needsUpdate = true
-
-    if (p > 0.95 && !flashed.current) {
-      flashed.current = true
-      setFlash(true)
-      setTimeout(() => setFlash(false), 200)
-    } else if (p <= 0.95) {
-      flashed.current = false
-    }
-  })
-
   return (
-    <>
-      <lineSegments ref={linesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            count={lineCount * 2}
-            array={currentPositions}
-            itemSize={3}
-          />
-        </bufferGeometry>
-        <lineBasicMaterial color="#1C1F2B" transparent opacity={0.15} />
-      </lineSegments>
-      {flash && (
-        <mesh position={[0, 0, 1.4]}>
-          <planeGeometry args={[10, 10]} />
-          <meshBasicMaterial color="#3F7D50" transparent opacity={0.3} />
-        </mesh>
-      )}
-    </>
-  )
-}
+    <section ref={containerRef} className="relative w-full h-screen bg-[#050505] overflow-hidden flex flex-col justify-center items-center" id="hero">
+      
+      {/* Background Gradients */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
+      
+      {/* HTML Overlay */}
+      <div className="relative z-[10] w-full flex flex-col items-center justify-center px-6 pointer-events-none hero-text h-full mt-24">
+        
+        {/* Value Proposition Headline */}
+        <div className="flex flex-col items-center justify-center mb-12">
+          <div className="px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-mono tracking-widest uppercase mb-8 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4" /> Enterprise Grade
+          </div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold tracking-tighter text-center leading-[1.1] text-white max-w-5xl">
+            Autonomous <span className="text-emerald-400">3-Way</span> Financial <br className="hidden md:block"/> Reconciliation Engine
+          </h1>
+        </div>
 
-export default function HeroScene() {
-  const [shouldRender3D, setShouldRender3D] = useState(false)
-
-  useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const isDesktop = window.innerWidth >= 768
-    
-    // basic webgl test
-    let webglSupported = false
-    try {
-      const canvas = document.createElement('canvas')
-      webglSupported = !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')))
-    } catch (e) {
-      webglSupported = false
-    }
-
-    if (isDesktop && !prefersReducedMotion && webglSupported) {
-      setShouldRender3D(true)
-    }
-  }, [])
-
-  if (!shouldRender3D) {
-    return (
-      <div className="relative w-full h-[100vh]">
-        <StaticHeroFallback />
-        <HeroOverlay />
-      </div>
-    )
-  }
-
-  const sheetCount = 7
-
-  return (
-    <div className="w-full h-[150vh] bg-transparent" id="hero">
-      <div className="sticky top-0 w-full h-[100vh]">
-        <Canvas>
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[-4, 5, 3]} intensity={1.1} color="#FFF8E8" />
-          <Environment preset="apartment" />
+        {/* 3-Way Diagram Visual */}
+        <div className="flex items-center justify-center gap-4 md:gap-12 mb-16 opacity-80">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-xl bg-[#18181b] border border-white/10 flex items-center justify-center shadow-lg">
+              <Layers className="w-8 h-8 text-blue-400" />
+            </div>
+            <span className="text-xs font-mono text-gray-400 tracking-widest uppercase">Gateway</span>
+          </div>
           
-          {[...Array(sheetCount)].map((_, i) => (
-            <LedgerSheet key={i} index={i} total={sheetCount} />
-          ))}
-          <Lines />
-        </Canvas>
-        <HeroOverlay />
+          <div className="flex flex-col items-center mt-8">
+            <GitMerge className="w-8 h-8 text-emerald-500" />
+            <div className="h-px w-16 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent mt-2"></div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-xl bg-[#18181b] border border-white/10 flex items-center justify-center shadow-lg">
+              <ShieldCheck className="w-8 h-8 text-amber-400" />
+            </div>
+            <span className="text-xs font-mono text-gray-400 tracking-widest uppercase">Bank</span>
+          </div>
+
+          <div className="flex flex-col items-center mt-8">
+            <GitMerge className="w-8 h-8 text-emerald-500" />
+            <div className="h-px w-16 bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent mt-2"></div>
+          </div>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-16 h-16 rounded-xl bg-[#18181b] border border-white/10 flex items-center justify-center shadow-lg">
+              <DatabaseIcon className="w-8 h-8 text-purple-400" />
+            </div>
+            <span className="text-xs font-mono text-gray-400 tracking-widest uppercase">Ledger</span>
+          </div>
+        </div>
+        
+        {/* Sub-content positioned lower */}
+        <div className="flex flex-col items-center z-[10]">
+          <p className="max-w-2xl text-center text-sm md:text-base text-gray-400 mb-10 font-medium tracking-wide leading-relaxed">
+            Eliminate manual spreadsheet matching. Automate millions of transactions across your payment gateway, bank settlements, and merchant ledger with a deterministic core and a human-in-the-loop AI fallback.
+          </p>
+          <div className="pointer-events-auto flex items-center gap-6">
+            <MagneticButton>
+              <div onClick={() => router.push('/dashboard')} className="flex items-center gap-2 text-xs md:text-sm tracking-widest uppercase font-semibold text-black bg-emerald-500 border border-emerald-400 px-8 py-4 hover:bg-emerald-400 transition-colors cursor-pointer rounded-md shadow-lg shadow-emerald-500/20">
+                View Scorecard
+              </div>
+            </MagneticButton>
+            <MagneticButton>
+              <div onClick={() => router.push('/exceptions')} className="flex items-center gap-2 text-xs md:text-sm tracking-widest uppercase font-semibold text-white bg-transparent border border-white/20 px-8 py-4 hover:bg-white/5 transition-colors cursor-pointer rounded-md">
+                Review Exceptions
+              </div>
+            </MagneticButton>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
 
-function HeroOverlay() {
+function DatabaseIcon(props: any) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10 px-6 text-center">
-      <h1 className="text-5xl md:text-7xl font-display font-bold text-[var(--ink)] mb-6 tracking-tight drop-shadow-sm">
-        Razorpay Recon <br />
-        <span className="text-[var(--ink-dim)]">Precision & Scale</span>
-      </h1>
-      <p className="max-w-2xl text-xl text-[var(--ink-dim)] mb-10 drop-shadow-sm">
-        A deterministic three-way reconciliation engine. Matching gateway transaction records, bank settlements, and merchant ledger entries.
-      </p>
-      <div className="pointer-events-auto">
-        <MagneticButton>
-          Explore Architecture
-        </MagneticButton>
-      </div>
-    </div>
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+      <path d="M3 12A9 3 0 0 0 21 12" />
+    </svg>
   )
 }

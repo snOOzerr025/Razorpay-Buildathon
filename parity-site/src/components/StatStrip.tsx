@@ -1,37 +1,26 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { gsap } from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { motion, useInView } from 'framer-motion'
 import { STATS } from '@/lib/stats'
+import { gsap } from 'gsap'
 
 function Counter({ endValue, suffix = '' }: { endValue: number; suffix?: string }) {
   const [display, setDisplay] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
-  const animated = useRef(false)
+  const isInView = useInView(ref, { once: true, margin: "-10%" })
 
   useEffect(() => {
-    if (!ref.current) return
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && !animated.current) {
-          animated.current = true
-          const obj = { val: 0 }
-          gsap.to(obj, {
-            val: endValue,
-            duration: 1.2,
-            ease: 'expo.out',
-            onUpdate: () => setDisplay(Math.round(obj.val))
-          })
-        }
+    if (isInView) {
+      const obj = { val: 0 }
+      gsap.to(obj, {
+        val: endValue,
+        duration: 1.5,
+        ease: 'power3.out',
+        onUpdate: () => setDisplay(Math.round(obj.val))
       })
-    }, { threshold: 0.1 })
-
-    observer.observe(ref.current)
-
-    return () => observer.disconnect()
-  }, [endValue])
+    }
+  }, [isInView, endValue])
 
   return (
     <div ref={ref} className="text-4xl md:text-5xl font-mono mono-num text-[var(--ink)]">
@@ -41,57 +30,30 @@ function Counter({ endValue, suffix = '' }: { endValue: number; suffix?: string 
 }
 
 export default function StatStrip() {
-  const bgRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.to(bgRef.current, {
-        y: 40,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: '#stats',
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 1.5,
-        }
-      })
-    })
-    return () => ctx.revert()
-  }, [])
-
   return (
-    <section id="stats" className="relative w-full py-24 overflow-hidden border-y border-[var(--hairline)] bg-[var(--bg-paper)]">
-      {/* Background SVG Parallax */}
-      <div 
-        ref={bgRef} 
-        className="absolute inset-0 w-full h-[120%] -top-[10%] pointer-events-none"
-      >
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="ledger-lines" x="0" y="0" width="100" height="32" patternUnits="userSpaceOnUse">
-              <line x1="0" y1="31" x2="100" y2="31" stroke="var(--hairline)" strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#ledger-lines)" />
-        </svg>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 text-center relative z-10">
-        <div>
-          <Counter endValue={STATS.recordsProcessed} />
-          <div className="mt-2 text-sm text-[var(--ink-dim)] uppercase tracking-widest font-semibold">Records Processed</div>
-        </div>
-        <div>
-          <Counter endValue={STATS.automatedMatchRate} suffix="%" />
-          <div className="mt-2 text-sm text-[var(--ink-dim)] uppercase tracking-widest font-semibold">Automated Match Rate</div>
-        </div>
-        <div>
-          <Counter endValue={STATS.throughputPerSec} />
-          <div className="mt-2 text-sm text-[var(--ink-dim)] uppercase tracking-widest font-semibold">Throughput / Sec</div>
-        </div>
-        <div>
-          <Counter endValue={STATS.fnContainment} suffix="%" />
-          <div className="mt-2 text-sm text-[var(--ink-dim)] uppercase tracking-widest font-semibold">FN Containment</div>
+    <section className="relative w-full py-24 bg-[var(--bg-paper)] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[
+            { label: 'Records Processed', value: STATS.recordsProcessed, suffix: '' },
+            { label: 'Automated Match Rate', value: STATS.automatedMatchRate, suffix: '%' },
+            { label: 'Throughput / Sec', value: STATS.throughputPerSec, suffix: '' },
+            { label: 'FN Containment', value: STATS.fnContainment, suffix: '%' },
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-10%" }}
+              transition={{ delay: i * 0.1, duration: 0.6 }}
+              className="bg-[var(--surface)] border border-[var(--hairline)] rounded-2xl p-8 flex flex-col items-center justify-center text-center backdrop-blur-md"
+            >
+              <Counter endValue={stat.value} suffix={stat.suffix} />
+              <div className="mt-4 text-xs text-[var(--ink-dim)] uppercase tracking-widest font-medium">
+                {stat.label}
+              </div>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

@@ -184,8 +184,19 @@ class FellegiSunterScorer:
         Returns MatchCandidate objects for pairs classified as 'match' or 'hitl'.
         Rejected pairs are logged but not returned.
         """
-        # Filter to unmatched only
-        gw_pool = [gw for gw in gateway_records if gw["id"] in unmatched_gateway_ids]
+        gw_pool = []
+        for gw in gateway_records:
+            if gw["id"] in unmatched_gateway_ids:
+                # Precompute parsed values to avoid O(N*M) string parsing overhead
+                try:
+                    gw["_parsed_net"] = _decimal(gw.get("expected_net_amount") or gw.get("gross_amount", "0"))
+                    gw["_parsed_date"] = _to_date(gw["transaction_ts"])
+                except Exception:
+                    gw["_parsed_net"] = Decimal("0")
+                    # Fallback date far in the past to ensure it fails blocking
+                    gw["_parsed_date"] = date(1970, 1, 1)
+                gw_pool.append(gw)
+        
         bank_pool = [b for b in bank_records if b["id"] in unmatched_bank_ids]
 
         if not gw_pool or not bank_pool:
@@ -270,19 +281,15 @@ def _passes_blocking(
     if gw.get("currency", "") != currency:
         return False
 
-    try:
-        gw_net = _decimal(gw.get("expected_net_amount") or gw.get("gross_amount", "0"))
-        if abs(gw_net - bank_net) > BLOCKING_AMOUNT_BAND:
-            return False
-    except Exception:
+    gw_net = gw.get("_parsed_net")
+    if gw_net is None or abs(gw_net - bank_net) > BLOCKING_AMOUNT_BAND:
         return False
 
-    try:
-        gw_date = _to_date(gw["transaction_ts"])
-        lag = abs((bank_date - gw_date).days)
-        if lag > BLOCKING_DATE_WINDOW:
-            return False
-    except Exception:
+    gw_date = gw.get("_parsed_date")
+    if gw_date is None:
+        return False
+    lag = abs((bank_date - gw_date).days)
+    if lag > BLOCKING_DATE_WINDOW:
         return False
 
     return True

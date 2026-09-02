@@ -57,6 +57,14 @@ from src.matching.passes.pass2 import run_pass2
 from src.matching.passes.pass3 import run_pass3
 from src.matching.passes.pass4 import run_pass4
 from src.matching.passes.pass5 import run_pass5
+from src.matching.probabilistic.calibration import get_default_calibration
+from src.matching.probabilistic.fellegi_sunter import FellegiSunterScorer
+from src.matching.probabilistic.embeddings import SemanticMatcher
+from src.matching.probabilistic.ai_investigator import (
+    compute_hard_facts,
+    investigate_exception,
+    verify_investigation
+)
 from src.matching.types import (
     ExceptionCategory,
     MatchCandidate,
@@ -167,6 +175,56 @@ def run_matching_engine(conn: Connection) -> EngineRunSummary:
             })
             logger.info("%s: %d matches", pass_label, pr.matched_count)
 
+        # Phase B.5 — Probabilistic Layer & AI Investigation
+        logger.info("Starting Phase B.5 — Probabilistic (AI/Semantic)")
+        # Instantiate scorers
+        cal = get_default_calibration()
+        fs_scorer = FellegiSunterScorer(cal)
+        semantic_matcher = SemanticMatcher(hitl_threshold=0.6, hotl_threshold=0.8)
+
+        ai_candidates = []
+        fs_resolved = 0
+        
+        fs_results = fs_scorer.score_residuals(gateway_records, bank_records, unmatched_gw, unmatched_bk)
+        for cand in fs_results:
+            fs_resolved += 1
+            # Check tier. If it's HITL (needs review), or if we just want to run AI explanation:
+            if cand.tier.value in ("hitl", "hotl"):
+                # Run the 3-role loop
+                m_gw = next((g for g in gateway_records if g["id"] == cand.members[0].record_id), None)
+                m_bk = next((b for b in bank_records if b["id"] == cand.members[1].record_id), None)
+                
+                if m_gw and m_bk:
+                    # Role 1: Hard Facts
+                    hf = compute_hard_facts(m_gw, m_bk)
+                    # Role 2: AI Investigator
+                    investigation = investigate_exception(hf, m_gw, m_bk, use_llm=True)
+                    # Role 3: Verifier
+                    verification = verify_investigation(hf, investigation)
+                    
+                    cand.explanation = {
+                        "reason": investigation.likely_explanation,
+                        "evidence": investigation.evidence,
+                        "action": verification.final_action,
+                        "ai_confidence": investigation.confidence,
+                        "equation_verified": verification.passed,
+                    }
+                    
+                    if verification.final_action == "RESOLVE":
+                        cand.tier = MatchTier.HOTL
+                    else:
+                        cand.tier = MatchTier.HITL
+            
+            ai_candidates.append(cand)
+            # Note: score_batch already discards from unmatched sets
+            
+        summary.pass_stats.append({
+            "pass": "Pass 5 — Probabilistic (AI/Semantic)",
+            "matched": fs_resolved,
+            "stats": {"fellegi_resolved": fs_resolved, "semantic_resolved": 0},
+        })
+        logger.info("Phase B.5: %d AI matches", fs_resolved)
+
         # Pass 5 — exception routing
         logger.info("Starting Pass 5 — Exception queue")
         p5 = run_pass5(
@@ -180,7 +238,7 @@ def run_matching_engine(conn: Connection) -> EngineRunSummary:
         })
 
         # ---- Phase C: Persist -----------------------------------------------
-        all_candidates = [c for pr in pass_results for c in pr.candidates]
+        all_candidates = [c for pr in pass_results for c in pr.candidates] + ai_candidates
 
         n_persisted  = _persist_matches(conn, all_candidates, run_id)
         n_exceptions = _persist_exceptions(conn, exceptions, run_id)

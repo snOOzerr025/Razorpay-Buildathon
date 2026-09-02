@@ -98,10 +98,14 @@ def run_pass4(
     )
 
     # Index gateway records still unmatched
-    gw_by_id: dict[int, dict] = {
-        gw["id"]: gw for gw in gateway_records
-        if gw["id"] in unmatched_gateway_ids
-    }
+    gw_by_id: dict[int, dict] = {}
+    for gw in gateway_records:
+        if gw["id"] in unmatched_gateway_ids:
+            # Precompute parsed values to avoid O(N*M) string parsing overhead
+            gw["_parsed_net"] = _decimal(gw["expected_net_amount"])
+            gw["_parsed_paise"] = _to_paise(gw["_parsed_net"])
+            gw["_parsed_date"] = _to_date(gw["transaction_ts"])
+            gw_by_id[gw["id"]] = gw
 
     ambiguous_count = 0
     pool_exceeded_count = 0
@@ -142,8 +146,7 @@ def run_pass4(
 
         # --- Step 2: integer scaling -----------------------------------------
         target_paise = _to_paise(bank_net)
-        pool_paise   = [(gw["id"], _to_paise(_decimal(gw["expected_net_amount"])))
-                        for gw in pool]
+        pool_paise   = [(gw["id"], gw["_parsed_paise"]) for gw in pool]
 
         # No DP matrix allocation guard needed - dictionary DP handles sparse values instantly.
 
@@ -251,13 +254,13 @@ def _build_pool(
     for gw in gw_by_id.values():
         if gw["currency"] != currency:
             continue
-        gw_net = _decimal(gw["expected_net_amount"])
+        gw_net = gw["_parsed_net"]
         if gw_net <= Decimal("0"):
             continue
         # Individual transaction can't exceed the batch total
         if gw_net > bank_net + AMOUNT_TOLERANCE:
             continue
-        gw_date = _to_date(gw["transaction_ts"])
+        gw_date = gw["_parsed_date"]
         if not (earliest <= gw_date <= bank_date):
             continue
         pool.append(gw)

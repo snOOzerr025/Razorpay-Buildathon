@@ -100,6 +100,8 @@ def run_pass2(
     }
 
     ambiguous_bank_ids: set[int] = set()
+    diag_refunds_matched = 0
+    diag_refund_ids = []
 
     for bank in bank_records:
         if bank["id"] not in unmatched_bank_ids:
@@ -164,6 +166,10 @@ def run_pass2(
         )
         result.candidates.append(candidate)
 
+        if match_gw.get("status") in ("refunded", "chargeback"):
+            diag_refunds_matched += 1
+            diag_refund_ids.append(match_gw["id"])
+
         result.unmatched_gateway_ids.discard(match_gw["id"])
         result.unmatched_bank_ids.discard(bank["id"])
         if matched_ledger:
@@ -190,6 +196,9 @@ def run_pass2(
         result.matched_count, len(ambiguous_bank_ids),
         len(result.unmatched_gateway_ids), len(result.unmatched_bank_ids),
     )
+    if diag_refunds_matched > 0:
+        logger.info("[Pass 2 Diagnostics] diag_refunds_matched: %d", diag_refunds_matched)
+        
     return result
 
 

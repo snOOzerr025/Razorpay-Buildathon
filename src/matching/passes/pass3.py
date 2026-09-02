@@ -107,12 +107,19 @@ def run_pass3(
         bank_by_currency.setdefault(bank["currency"], []).append(bank)
 
     gw_by_ext_id = {g["external_transaction_id"]: g for g in gateway_records}
+    
+    diag_refunds_entering = 0
+    diag_with_parent = 0
+    diag_parent_lookups_succeeded = 0
+    diag_bank_matches = 0
 
     for gw in gateway_records:
         if gw["id"] not in unmatched_gateway_ids:
             continue
         if gw.get("status") not in _REFUND_STATUSES:
             continue
+            
+        diag_refunds_entering += 1
 
         parent_id = gw.get("parent_transaction_id")
         if not parent_id:
@@ -124,6 +131,8 @@ def run_pass3(
             result.unmatched_gateway_ids.discard(gw["id"])  # pulled out of general pool
             # Will be picked up by Pass 5 as transaction_error
             continue
+            
+        diag_with_parent += 1
 
         parent = gw_by_ext_id.get(parent_id)
         if not parent:
@@ -132,6 +141,8 @@ def run_pass3(
                 parent_id, gw["id"],
             )
             continue
+            
+        diag_parent_lookups_succeeded += 1
 
         # Over-refund guard
         refund_gross  = _decimal(gw["gross_amount"])
@@ -181,6 +192,7 @@ def run_pass3(
         # (or will be) on the captured side. The refund is an additional member.
         if matched_bank:
             result.unmatched_bank_ids.discard(matched_bank["id"])
+            diag_bank_matches += 1
 
         logger.debug(
             "Pass3 refund match: refund_gw=%s parent_gw=%s bank=%s",
@@ -193,6 +205,10 @@ def run_pass3(
         "remaining_bank":    len(result.unmatched_bank_ids),
         "amount_tolerance":  str(REFUND_AMOUNT_TOLERANCE),
         "date_window_days":  REFUND_DATE_WINDOW_DAYS,
+        "diag_refunds_entering": diag_refunds_entering,
+        "diag_with_parent": diag_with_parent,
+        "diag_parent_lookups_succeeded": diag_parent_lookups_succeeded,
+        "diag_bank_matches": diag_bank_matches,
     }
 
     logger.info(

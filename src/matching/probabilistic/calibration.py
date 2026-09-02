@@ -269,3 +269,18 @@ def _to_date(value: str) -> date:
     if len(s) >= 10:
         return date.fromisoformat(s[:10])
     return date.fromisoformat(s)
+from src.matching.probabilistic.calibration import CalibrationResult, FieldCalibration
+
+def get_default_calibration() -> CalibrationResult:
+    """Fallback calibration for when synthetic ground truth is missing."""
+    return CalibrationResult(
+        total_true_matches=1000,
+        total_non_match_samples=10000,
+        seed=42,
+        fields={
+            "amount": FieldCalibration(m=0.95, u=0.01, omega=6.57),
+            "date": FieldCalibration(m=0.90, u=0.05, omega=4.17),
+            "reference": FieldCalibration(m=0.99, u=0.001, omega=9.95),
+            "currency": FieldCalibration(m=1.0, u=1.0, omega=0.0),
+        }
+    )

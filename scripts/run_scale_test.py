@@ -85,39 +85,85 @@ def run_in_memory_engine(gw, bk, led):
         unmatched_bk = pr.unmatched_bank_ids
         unmatched_led = pr.unmatched_ledger_ids
         
+    t0_b5 = time.perf_counter_ns()
+    
+    from src.matching.probabilistic.calibration import get_default_calibration
+    from src.matching.probabilistic.fellegi_sunter import FellegiSunterScorer
+    from src.matching.probabilistic.ai_investigator import compute_hard_facts, investigate_exception, verify_investigation
+    from src.matching.types import MatchTier
+    
+    cal = get_default_calibration()
+    fs_scorer = FellegiSunterScorer(cal)
+    
+    fs_results = fs_scorer.score_residuals(gw, bk, unmatched_gw, unmatched_bk)
+    ai_candidates = []
+    
+    first_investigation_saved = False
+    
+    for cand in fs_results:
+        if cand.tier.value in ("hitl", "hotl"):
+            m_gw = next((g for g in gw if g["id"] == cand.members[0].record_id), None)
+            m_bk = next((b for b in bk if b["id"] == cand.members[1].record_id), None)
+            
+            if m_gw and m_bk:
+                hf = compute_hard_facts(m_gw, m_bk)
+                investigation = investigate_exception(hf, m_gw, m_bk, use_llm=False)
+                verification = verify_investigation(hf, investigation)
+                
+                cand.explanation = {
+                    "reason": investigation.likely_explanation,
+                    "evidence": investigation.evidence,
+                    "action": verification.final_action,
+                    "ai_confidence": investigation.confidence,
+                    "equation_verified": verification.passed,
+                }
+                
+                if verification.final_action == "RESOLVE":
+                    cand.tier = MatchTier.HOTL
+                else:
+                    cand.tier = MatchTier.HITL
+                    
+                # Save first investigation artifact
+                if not first_investigation_saved:
+                    from dataclasses import asdict
+                    from datetime import datetime, timezone, date
+                    
+                    class CustomJSONEncoder(json.JSONEncoder):
+                        def default(self, obj):
+                            if isinstance(obj, Decimal):
+                                return str(obj)
+                            if isinstance(obj, date):
+                                return obj.isoformat()
+                            return super().default(obj)
+                            
+                    artifact = {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "gateway_record": m_gw,
+                        "bank_record": m_bk,
+                        "role_1_hard_facts": asdict(hf),
+                        "role_2_ai_output": asdict(investigation),
+                        "role_3_verification": asdict(verification)
+                    }
+                    out_path = Path(__file__).resolve().parents[1] / "demo" / "sample_ai_investigation.json"
+                    out_path.parent.mkdir(exist_ok=True)
+                    with open(out_path, "w", encoding="utf-8") as f:
+                        json.dump(artifact, f, indent=2, cls=CustomJSONEncoder)
+                    first_investigation_saved = True
+                    
+        ai_candidates.append(cand)
+        # Note: score_batch already discards from unmatched sets
+
+    b5_timing = (time.perf_counter_ns() - t0_b5) / 1_000_000
+    mock_pr = type("MockPR", (), {"candidates": ai_candidates, "unmatched_gateway_ids": unmatched_gw, "unmatched_bank_ids": unmatched_bk, "unmatched_ledger_ids": unmatched_led})()
+    mock_pr._timing_ms = b5_timing
+    mock_pr._fellegi_resolved = len(ai_candidates)
+    pass_results.append(("Phase B.5 — Probabilistic (AI/Semantic)", mock_pr))
+    
     t0_p5 = time.perf_counter_ns()
     p5 = run_pass5(gw, bk, led, unmatched_gw, unmatched_bk, unmatched_led)
     p5_timing = (time.perf_counter_ns() - t0_p5) / 1_000_000
     exceptions = getattr(p5, "_exceptions", [])
     
-    from src.matching.types import MatchCandidate, MatchMember, RecordType, MatchPass, MatchTier
-    
-    # Simulate semantic AI layer retrieving matches
-    mock_candidates = []
-    unresolved_gws = [e for e in exceptions if e.suggested_category.value == "unresolved" and e.record_type == RecordType.CANONICAL_TRANSACTION]
-    unresolved_bks = [e for e in exceptions if e.suggested_category.value == "unresolved" and e.record_type == RecordType.BANK_SETTLEMENT]
-    
-    for i in range(min(15, len(unresolved_gws), len(unresolved_bks))):
-        gw_exc = unresolved_gws[i]
-        bk_exc = unresolved_bks[i]
-        mock_candidates.append(MatchCandidate(
-            matched_pass=MatchPass.SEMANTIC_EMBEDDING,
-            tier=MatchTier.HOTL,
-            members=[
-                MatchMember(record_type=gw_exc.record_type, record_id=gw_exc.record_id),
-                MatchMember(record_type=bk_exc.record_type, record_id=bk_exc.record_id)
-            ],
-            explanation={"reason": "Semantic similarity match (simulated)"},
-            confidence_score=Decimal("0.92")
-        ))
-        exceptions.remove(gw_exc)
-        exceptions.remove(bk_exc)
-            
-    mock_pr = type("MockPR", (), {"candidates": mock_candidates, "unmatched_gateway_ids": set(), "unmatched_bank_ids": set(), "unmatched_ledger_ids": set()})()
-    mock_pr._timing_ms = p5_timing + 140.2
-    mock_pr._fellegi_resolved = len(mock_candidates)
-    pass_results.append(("Pass 5 — Probabilistic (AI/Semantic)", mock_pr))
-            
     return pass_results, exceptions
 
 
@@ -163,12 +209,12 @@ def run_scale_test(count: int):
             elif m.record_type.value == "merchant_ledger": gt_ids.add(led_map.get(m.record_id))
         
         if len(gt_ids) == 1 and list(gt_ids)[0] is not None:
-            tp += 1
             covered_gt_ids.add(list(gt_ids)[0])
         else:
             fp += 1
             rupee_fp += bk_net
             
+    tp = len(covered_gt_ids)
     total_gt_matches = sum(1 for v in ground_truth.values() if v.get("label") != "orphan")
     fn = total_gt_matches - tp
     
@@ -233,29 +279,46 @@ def run_scale_test(count: int):
         cat = e.suggested_category.value
         cat_counts[cat] = cat_counts.get(cat, 0) + 1
     exc_str = " | ".join(f"{k}: {v}" for k, v in cat_counts.items())
-    
-    # Report
-    print("="*80)
-    print(" SCALE TEST REPORT")
-    print("="*80)
-    
-    global_rate = (total_unique_matched / total_processed) * 100
-    print(f"Total records processed:        {total_processed}")
-    print(f"Automated match rate:           {global_rate:.2f}% ({total_unique_matched} / {total_processed})")
-    print(f"Pass Breakdown:                 {' / '.join(pass_stats)}")
-    print(f"Naive baseline comparison:      {naive:.1f}% (+{global_rate - naive:.1f}% lift)")
-    print(f"Net discrepancy value:          INR {net_disc:.2f}")
-    print(f"Exceptions by category:         {exc_str}")
-    print(f"Safety Check:                   100% of False Negatives (Missed Matches) were safely caught by the Exception Queue.")
-    print(f"Confusion Matrix (Bundles):     TP: {tp} | FP: {fp} (FP Risk: INR {rupee_fp:.2f}) | FN: {fn} (Pending Manual Review: INR {rupee_fn:.2f})")
-    print(f"Precision vs. synthetic GT:     {precision:.1f}%")
-    print(f"Recall vs. synthetic GT:        {recall:.1f}%")
-    print(f"Throughput:                     {int(total_processed / duration)} records/sec (Duration: {duration:.2f}s)")
-    
-    print("\n[Latency Profile]")
+    # Extract Pass 3 stats
+    p3_stats = {}
     for lbl, pr in pass_results:
-        print(f"  - {lbl.ljust(35)} {getattr(pr, '_timing_ms', 0):.2f} ms")
-    print("="*80 + "\n")
+        if "Pass 3" in lbl:
+            p3_stats = getattr(pr, "stats", {})
+
+    metadata_path = OUT_DIR / "generation_metadata.json"
+    dataset_metadata = {}
+    if metadata_path.exists():
+        with open(metadata_path, "r") as f:
+            meta = json.load(f)
+            dataset_metadata = {
+                "seed": meta.get("seed"),
+                "count": meta.get("count"),
+                "refunds": meta.get("totals", {}).get("refunds", int(meta.get("count", 0) * 0.05)),
+                "batches": int(meta.get("count", 0) * 0.06),
+                "orphans": int(meta.get("count", 0) * 0.03),
+                "timing": int(meta.get("count", 0) * 0.08),
+            }
+
+    from src.matching.report_generator import generate_close_report
+    report = generate_close_report(
+        pass_results=pass_results,
+        exceptions=exceptions,
+        total_processed=total_processed,
+        total_gt_matches=total_gt_matches,
+        tp=tp,
+        fp=fp,
+        fn=fn,
+        rupee_fp=rupee_fp,
+        rupee_fn=rupee_fn,
+        duration=duration,
+        naive_rate=naive,
+        dataset_metadata=dataset_metadata
+    )
+    print(report)
+    print(f"\n[Pass 3 Diagnostics]")
+    for k, v in p3_stats.items():
+        if k.startswith("diag_"):
+            print(f"  {k}: {v}")
 
 def test_concurrency():
     import sqlite3

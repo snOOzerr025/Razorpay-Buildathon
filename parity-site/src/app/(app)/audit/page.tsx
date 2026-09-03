@@ -8,23 +8,34 @@ export default function AuditTrailPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 flex flex-col gap-8">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between anim-stagger">
         <div>
-          <h2 className="text-2xl font-display mb-2 flex items-center gap-2 text-white">
-            <ShieldCheck className="w-6 h-6 text-[#00E5FF]" />
+          <h2 className="text-2xl font-display mb-2 flex items-center gap-2"
+            style={{ color: 'var(--text-primary)' }}>
+            <ShieldCheck className="w-6 h-6" style={{ color: 'var(--accent-primary)' }} />
             Immutable Audit Trail
           </h2>
-          <p className="text-gray-400">
+          <p style={{ color: 'var(--text-muted)' }}>
             A cryptographic log of all state mutations. Note: The matching engine enforces append-only compensating entries rather than destructive updates.
           </p>
         </div>
       </div>
 
-      <div className="bg-[#0a0a0a] border border-white/10 rounded-sm shadow-xl">
+      <div className="anim-stagger rounded-xl overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-elevated)',
+        }}>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="text-xs uppercase tracking-widest text-gray-500 border-b border-white/10 bg-[#050505]">
+              <tr className="text-xs uppercase tracking-widest"
+                style={{
+                  color: 'var(--text-muted)',
+                  borderBottom: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-elevated)',
+                }}>
                 <th className="px-6 py-4 font-normal">Timestamp</th>
                 <th className="px-6 py-4 font-normal">Actor</th>
                 <th className="px-6 py-4 font-normal">Action Details</th>
@@ -35,25 +46,33 @@ export default function AuditTrailPage() {
             <tbody>
               {/* Reverse to show newest first */}
               {auditTrail.slice().reverse().map(entry => (
-                <tr key={entry.id} className="border-b border-white/10 last:border-0 hover:bg-white/5 transition-colors text-white">
-                  <td className="px-6 py-4 text-gray-400 text-sm whitespace-nowrap">
+                <tr key={entry.id} className="transition-colors"
+                  style={{
+                    borderBottom: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                  }}>
+                  <td className="px-6 py-4 text-sm whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                     {new Date(entry.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 font-medium flex items-center gap-2">
-                    <FileSignature className="w-4 h-4 text-[#00E5FF]" />
+                    <FileSignature className="w-4 h-4" style={{ color: 'var(--accent-primary)' }} />
                     {entry.actor}
                   </td>
                   <td className="px-6 py-4 text-sm">{entry.action}</td>
-                  <td className="px-6 py-4 font-mono text-sm text-[#00E5FF]">{entry.exceptionId}</td>
+                  <td className="px-6 py-4 font-mono text-sm" style={{ color: 'var(--text-sandy)' }}>{entry.exceptionId}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2 text-xs font-mono font-medium uppercase tracking-widest">
-                      <span className="text-gray-500">{entry.beforeStatus}</span>
-                      <ArrowRight className="w-3 h-3 text-gray-500" />
-                      <span className={`px-1.5 py-0.5 rounded-sm ${
-                        entry.afterStatus === 'Posted' ? 'bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30' :
-                        entry.afterStatus === 'Escalated' ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
-                        'bg-white/5 border border-white/10 text-gray-400'
-                      }`}>
+                      <span style={{ color: 'var(--text-muted)' }}>{entry.beforeStatus}</span>
+                      <ArrowRight className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
+                      <span className="px-1.5 py-0.5 rounded-md"
+                        style={
+                          entry.afterStatus === 'Posted'
+                            ? { backgroundColor: 'var(--success-soft)', color: 'var(--success)', border: '1px solid var(--success)' }
+                            : entry.afterStatus === 'Escalated'
+                              ? { backgroundColor: 'var(--danger-soft)', color: 'var(--danger-bright)', border: '1px solid var(--danger)' }
+                              : { backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-muted)' }
+                        }
+                      >
                         {entry.afterStatus}
                       </span>
                     </div>
@@ -62,7 +81,7 @@ export default function AuditTrailPage() {
               ))}
               {auditTrail.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center" style={{ color: 'var(--text-muted)' }}>
                     No audit records found. Execute matches or review exceptions to generate an audit trail.
                   </td>
                 </tr>

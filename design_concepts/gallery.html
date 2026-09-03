@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Dashboard Palette Concepts — Parity Recon</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0908; color: #f0ebe3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 40px 24px 100px; }
+    h1 { text-align: center; font-size: 2.4rem; color: #fff; margin-bottom: 10px; letter-spacing: -0.02em; }
+    .sub { text-align: center; color: #9a8e7e; font-size: 1.05rem; max-width: 750px; margin: 0 auto 60px; }
+
+    .section-divider { max-width: 1300px; margin: 60px auto 30px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px; display: flex; align-items: center; gap: 16px; }
+    .section-divider h2 { font-size: 1.5rem; color: #f0ebe3; }
+    .section-divider span { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; padding: 3px 10px; border-radius: 999px; }
+
+    .grid { max-width: 1300px; margin: 0 auto 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card { border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #121110; transition: border-color 0.2s, transform 0.2s; cursor: pointer; }
+    .card:hover { transform: translateY(-3px); border-color: #c25e1a; }
+    .card img { width: 100%; display: block; }
+    .card-body { padding: 20px 24px; }
+    .card-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #7a6e62; margin-bottom: 5px; }
+    .card-title { font-size: 1.15rem; color: #f0ebe3; margin-bottom: 12px; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+    .sw { display: flex; align-items: center; gap: 6px; background: #0c0b09; border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; padding: 4px 10px; font-size: 0.78rem; font-family: monospace; color: #b8b0a6; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+
+    .tag-new { background: rgba(194,94,26,0.2); color: #e07a35; border: 1px solid rgba(194,94,26,0.5); }
+    .tag-warm { background: rgba(97,230,168,0.12); color: #61E6A8; border: 1px solid rgba(97,230,168,0.3); }
+    .tag-gold { background: rgba(216,181,106,0.12); color: #D8B56A; border: 1px solid rgba(216,181,106,0.3); }
+    .tag-copper { background: rgba(213,138,91,0.12); color: #D58A5B; border: 1px solid rgba(213,138,91,0.3); }
+
+    .vote { max-width: 1300px; margin: 50px auto 0; background: #141210; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 28px 32px; }
+    .vote h3 { font-size: 1.2rem; color: #E8842C; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    td, th { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); text-align: left; }
+    th { color: #7a6e62; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    tr:last-child td { border-bottom: none; }
+    .name { font-weight: 700; color: #f0ebe3; }
+  </style>
+</head>
+<body>
+
+<h1>All Dashboard Palette Concepts</h1>
+<p class="sub">Click any card to zoom in. Image gen quota hit — 2 new concepts rendered from the dark red/orange/slate series. Sandy + Copper + Graphite Tricolor will generate in ~4h.</p>
+
+<!-- NEW SERIES: DARK RED, ORANGE, SLATE -->
+<div class="section-divider">
+  <h2>🆕 New: Dark Red, Orange & Slate Series</h2>
+  <span class="tag-new">Just Generated</span>
+</div>
+<div class="grid">
+  <div class="card">
+    <img src="h_crimson_graphite.jpg" alt="Crimson + Graphite War Room">
+    <div class="card-body">
+      <div class="card-label">Dark Mode · War Room Command Center</div>
+      <div class="card-title">Crimson Dark Red + Pure Graphite Black</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#0A0A0A"></span>#0A0A0A Jet Black</div>
+        <div class="sw"><span class="dot" style="background:#141414"></span>#141414 Graphite</div>
+        <div class="sw"><span class="dot" style="background:#C0392B"></span>#C0392B Crimson Red</div>
+        <div class="sw"><span class="dot" style="background:#C2A882"></span>#C2A882 Sandy Tan</div>
+        <div class="sw"><span class="dot" style="background:#5BA89A"></span>#5BA89A Teal Green</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <img src="h_dark_orange_slate.jpg" alt="Dark Orange + Slate Black">
+    <div class="card-body">
+      <div class="card-label">Dark Mode · Industrial Fintech</div>
+      <div class="card-title">Dark Burnt Orange + Slate Black + Sandy</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#0D0F10"></span>#0D0F10 Slate Black</div>
+        <div class="sw"><span class="dot" style="background:#C25E1A"></span>#C25E1A Burnt Orange</div>
+        <div class="sw"><span class="dot" style="background:#C4A97E"></span>#C4A97E Sandy</div>
+        <div class="sw"><span class="dot" style="background:#9B3A2E"></span>#9B3A2E Deep Crimson</div>
+        <div class="sw"><span class="dot" style="background:#3D8C7A"></span>#3D8C7A Slate Teal</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIOUS: OBSIDIAN + MINT -->
+<div class="section-divider">
+  <h2>Obsidian + Mint (AI Premium)</h2>
+  <span class="tag-warm">Ranked #1</span>
+</div>
+<div class="grid">
+  <div class="card">
+    <img src="g_obsidian_mint_dark.jpg" alt="Obsidian Mint Dark">
+    <div class="card-body">
+      <div class="card-label">Dark Mode</div>
+      <div class="card-title">Obsidian surfaces + Cyber Mint chart fill</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#0B0D0C"></span>#0B0D0C Base</div>
+        <div class="sw"><span class="dot" style="background:#61E6A8;box-shadow:0 0 8px #61E6A8"></span>#61E6A8 Mint</div>
+        <div class="sw"><span class="dot" style="background:#F2C96D"></span>#F2C96D Warning</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <img src="g_obsidian_mint_light.jpg" alt="Obsidian Mint Light">
+    <div class="card-body">
+      <div class="card-label">Light Mode</div>
+      <div class="card-title">Warm off-white + Forest Green status chips</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#F6F8F6;border-color:#ccc"></span>#F6F8F6 Base</div>
+        <div class="sw"><span class="dot" style="background:#168A55"></span>#168A55 Forest Green</div>
+        <div class="sw"><span class="dot" style="background:#C73D3D"></span>#C73D3D Exception</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MIDNIGHT + CHAMPAGNE -->
+<div class="section-divider">
+  <h2>Midnight + Champagne Gold</h2>
+  <span class="tag-gold">Ranked #2 — Executive</span>
+</div>
+<div class="grid">
+  <div class="card">
+    <img src="g_midnight_champagne_dark.jpg" alt="Midnight Champagne Dark">
+    <div class="card-body">
+      <div class="card-label">Dark Mode · Pass Pipeline Layout</div>
+      <div class="card-title">Midnight black + Champagne KPI borders + Pass Timeline</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#0C0C0E"></span>#0C0C0E Midnight</div>
+        <div class="sw"><span class="dot" style="background:#D8B56A"></span>#D8B56A Champagne</div>
+        <div class="sw"><span class="dot" style="background:#61C995"></span>#61C995 Success</div>
+        <div class="sw"><span class="dot" style="background:#F07070"></span>#F07070 Error</div>
+      </div>
+    </div>
+  </div>
+  <!-- Placeholder for light -->
+  <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:280px;">
+    <div style="text-align:center;color:#5a5248;padding:40px">
+      <div style="font-size:2.5rem;margin-bottom:10px">⏳</div>
+      <div style="font-size:0.95rem">Midnight+Champagne Light Mode<br><span style="color:#c4a060">#F7F5F0 cream + #9A6D20 amber-gold</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- GRAPHITE + COPPER -->
+<div class="section-divider">
+  <h2>Graphite + Copper</h2>
+  <span class="tag-copper">Ranked #3 — Most Unique</span>
+</div>
+<div class="grid">
+  <div class="card">
+    <img src="g_graphite_copper_dark.jpg" alt="Graphite Copper Dark">
+    <div class="card-body">
+      <div class="card-label">Dark Mode</div>
+      <div class="card-title">Warm charcoal + copper progress bar on 90.2%</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#0E0E0D"></span>#0E0E0D Graphite</div>
+        <div class="sw"><span class="dot" style="background:#D58A5B"></span>#D58A5B Copper</div>
+        <div class="sw"><span class="dot" style="background:#62C49A"></span>#62C49A Teal</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <img src="g_graphite_copper_light.jpg" alt="Graphite Copper Light">
+    <div class="card-body">
+      <div class="card-label">Light Mode</div>
+      <div class="card-title">Warm parchment + burned copper CTA + editorial type</div>
+      <div class="swatches">
+        <div class="sw"><span class="dot" style="background:#F8F6F2;border-color:#ccc"></span>#F8F6F2 Parchment</div>
+        <div class="sw"><span class="dot" style="background:#A9552B"></span>#A9552B Burned Copper</div>
+        <div class="sw"><span class="dot" style="background:#187D58"></span>#187D58 Forest</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VERDICT -->
+<div class="vote">
+  <h3>📊 Full Ranking — Pick One to Implement</h3>
+  <table>
+    <tr><th>Concept</th><th>Vibe</th><th>Uniqueness</th><th>Readability</th></tr>
+    <tr><td class="name">🥇 Obsidian + Mint</td><td>AI Terminal / Premium SaaS</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+    <tr><td class="name">🔴 Crimson + Graphite</td><td>War Room / High Stakes</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+    <tr><td class="name">🟠 Dark Orange + Slate</td><td>Industrial / Warm-vs-Cold</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+    <tr><td class="name">🥈 Midnight + Champagne</td><td>Executive / Wealth Mgmt</td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+    <tr><td class="name">🥉 Graphite + Copper</td><td>Luxury Industrial</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐⭐</td></tr>
+    <tr><td class="name">☀️ Sandstone + Navy</td><td>Editorial Light Mode</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐⭐</td></tr>
+  </table>
+</div>
+
+</body>
+</html>

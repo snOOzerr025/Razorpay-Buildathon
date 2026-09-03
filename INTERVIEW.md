@@ -16,6 +16,25 @@ duplicate it here. Quick-reference list only:
    beats a rehearsed one.)*
 6. What would you build next with more time?
 
+## Structural Insights (Knowledge Graph Derived)
+These questions were structurally derived from our `/graphify` architecture pass and answer the complex integration points of the codebase:
+
+### 1. What is the overall architecture of the reconciliation engine?
+The pipeline operates on a **Deterministic-First, Probabilistic-Second** approach:
+*   **Deterministic Core (Passes 1-4):** Strict rule-based matching. Pass 1 handles exact matches. Pass 2 handles tolerance windows and fee normalization. Pass 3 links refunds. Pass 4 solves the hardest problem: Subset-Sum (1-to-N matching) for batched bank settlements.
+*   **Probabilistic Layer (Pass 5):** The fallback heuristic. It uses a Fellegi-Sunter record linkage model and semantic LLM embeddings to handle unstructured narration data (like messy UTRs) that fail strict rules.
+
+### 2. Why does `MatchTier` act as a central bridge across the entire architecture?
+The knowledge graph highlights `MatchTier` as the ultimate bridge node connecting the engine, the probabilistic layer, the API routes, and the tests. This is because **state mutation and financial risk** are entirely governed by the `MatchTier`:
+*   **Tier 1 (HOOTL - Human Out Of The Loop):** High confidence (Pass 1/2). Auto-approved and committed.
+*   **Tier 2 (HOTL - Human On The Loop):** Medium confidence (Pass 3/4 splits). Posted but heavily surfaced for retroactive review.
+*   **Tier 3 (HITL - Human In The Loop):** Low confidence AI guesses (Pass 5). Held in an Exception Queue. The database *does not mutate* until an explicit `/approve_match` API call is made.
+
+### 3. Are the inferred relationships between `MatchTier` and deterministic passes correct?
+Yes. The LLM never computes financial totals because it is prone to hallucination. By wiring `MatchTier` directly into the deterministic passes (Pass 1-4) and isolating the LLM entirely in Pass 5, we enforce the invariant: **Deterministic code disposes; the LLM merely proposes.** 
+
+---
+
 ## Real failure case log
 Format for every entry: **What broke → Root cause → Fix → Interview angle** (which question above
 it answers, or what trait it demonstrates — debugging process, scoping judgment, domain

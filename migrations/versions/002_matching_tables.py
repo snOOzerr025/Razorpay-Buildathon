@@ -67,7 +67,7 @@ def upgrade() -> None:
                 ADD COLUMN IF NOT EXISTS match_status TEXT NOT NULL DEFAULT 'unmatched'
                     CHECK (match_status IN ('unmatched', 'confirmed', 'pending_hotl',
                                             'pending_hitl', 'rejected', 'compensated')),
-                ADD COLUMN IF NOT EXISTS match_id UUID REFERENCES matches(id) ON DELETE SET NULL
+                ADD COLUMN IF NOT EXISTS match_id BIGINT REFERENCES matches(id) ON DELETE SET NULL
         """)
         op.execute(f"""
             CREATE INDEX IF NOT EXISTS idx_{table}_match_status
@@ -76,29 +76,16 @@ def upgrade() -> None:
         """)
 
     # ------------------------------------------------------------------
-    # 2. matches table
+    # 2. matches table updates
     # ------------------------------------------------------------------
     op.execute("""
-        CREATE TABLE IF NOT EXISTS matches (
-            id                  UUID        PRIMARY KEY,
-            match_pass          TEXT        NOT NULL
-                CHECK (match_pass IN (
-                    'pass1_exact', 'pass2_tolerance', 'pass3_refund',
-                    'pass4_split', 'fellegi_sunter', 'semantic_embedding'
-                )),
-            tier                TEXT        NOT NULL
-                CHECK (tier IN ('hootl', 'hotl', 'hitl')),
-            status              TEXT        NOT NULL DEFAULT 'confirmed'
+        ALTER TABLE matches
+            ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'confirmed'
                 CHECK (status IN ('confirmed', 'pending_hotl', 'pending_hitl',
                                   'rejected', 'compensated')),
-            confidence_score    NUMERIC(6,4)
-                CHECK (confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)),
-            match_explanation   JSONB       NOT NULL DEFAULT '{}',
-            approved_by         TEXT,
-            approved_at         TIMESTAMPTZ,
-            created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
+            ADD COLUMN IF NOT EXISTS approved_by TEXT,
+            ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
     """)
     op.execute("""
         CREATE INDEX IF NOT EXISTS idx_matches_status
@@ -106,7 +93,7 @@ def upgrade() -> None:
     """)
     op.execute("""
         CREATE INDEX IF NOT EXISTS idx_matches_pass_tier
-            ON matches (match_pass, tier)
+            ON matches (matched_pass, tier)
     """)
 
     # ------------------------------------------------------------------
@@ -115,7 +102,7 @@ def upgrade() -> None:
     op.execute("""
         CREATE TABLE IF NOT EXISTS match_members (
             id          BIGSERIAL   PRIMARY KEY,
-            match_id    UUID        NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+            match_id    BIGINT      NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
             record_type TEXT        NOT NULL
                 CHECK (record_type IN (
                     'canonical_transaction',
@@ -136,34 +123,13 @@ def upgrade() -> None:
     """)
 
     # ------------------------------------------------------------------
-    # 4. exceptions table
+    # 4. exceptions table updates
     # ------------------------------------------------------------------
     op.execute("""
-        CREATE TABLE IF NOT EXISTS exceptions (
-            id              UUID        PRIMARY KEY,
-            record_type     TEXT        NOT NULL
-                CHECK (record_type IN (
-                    'canonical_transaction',
-                    'bank_settlement',
-                    'merchant_ledger'
-                )),
-            record_id       BIGINT      NOT NULL,
-            category        TEXT        NOT NULL
-                CHECK (category IN (
-                    'timing_difference',
-                    'transaction_error',
-                    'bank_initiated',
-                    'unresolved'
-                )),
-            dollar_value    NUMERIC(18,2) NOT NULL DEFAULT 0.00,
-            run_id          UUID,
-            resolved        BOOLEAN     NOT NULL DEFAULT FALSE,
-            resolved_at     TIMESTAMPTZ,
-            resolved_by     TEXT,
-            resolution_note TEXT,
-            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE (record_type, record_id)
-        )
+        ALTER TABLE exceptions
+            ADD COLUMN IF NOT EXISTS run_id UUID,
+            ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open';
     """)
     op.execute("""
         CREATE INDEX IF NOT EXISTS idx_exceptions_category_value

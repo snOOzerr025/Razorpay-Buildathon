@@ -124,6 +124,7 @@ def run_matching_engine(conn: Connection) -> EngineRunSummary:
         started_at=started_at.isoformat(),
         completed_at="",
         duration_seconds=0.0,
+        total_records_loaded=0,
     )
 
     try:
@@ -180,7 +181,7 @@ def run_matching_engine(conn: Connection) -> EngineRunSummary:
         # Instantiate scorers
         cal = get_default_calibration()
         fs_scorer = FellegiSunterScorer(cal)
-        semantic_matcher = SemanticMatcher(hitl_threshold=0.6, hotl_threshold=0.8)
+        semantic_matcher = SemanticMatcher(similarity_threshold=0.6)
 
         ai_candidates = []
         fs_resolved = 0
@@ -224,6 +225,20 @@ def run_matching_engine(conn: Connection) -> EngineRunSummary:
             "stats": {"fellegi_resolved": fs_resolved, "semantic_resolved": 0},
         })
         logger.info("Phase B.5: %d AI matches", fs_resolved)
+
+        # Semantic Matcher: Dead semantic matcher bug fix
+        semantic_results = semantic_matcher.match_residuals(
+            gateway_records, bank_records, unmatched_gw, unmatched_bk
+        )
+        for cand in semantic_results:
+            ai_candidates.append(cand)
+            # Remove from unmatched sets so they aren't processed by exception pass
+            unmatched_gw.discard(cand.members[0].record_id)
+            unmatched_bk.discard(cand.members[1].record_id)
+
+        summary.pass_stats[-1]["stats"]["semantic_resolved"] = len(semantic_results)
+        summary.pass_stats[-1]["matched"] += len(semantic_results)
+        logger.info("Phase B.5: %d Semantic matches", len(semantic_results))
 
         # Pass 5 — exception routing
         logger.info("Starting Pass 5 — Exception queue")
@@ -338,22 +353,28 @@ def _persist_matches(
     now = datetime.now(timezone.utc)
 
     for candidate in candidates:
-        match_id = str(uuid.uuid4())
         status   = _tier_to_status(candidate.tier)
 
-        # Insert into matches
+        import hashlib
+        import uuid
+        member_ids = sorted(f"{m.record_type.value}:{m.record_id}" for m in candidate.members)
+        hash_input = "|".join(member_ids).encode('utf-8')
+        deterministic_group_id = uuid.UUID(hashlib.md5(hash_input).hexdigest())
+
+        # Insert into matches — ON CONFLICT DO NOTHING makes re-runs idempotent
+        # (the docstring on _persist_matches promises this).
         result = conn.execute(text("""
             INSERT INTO matches (
-                id, match_pass, tier, status,
+                match_group_id, matched_pass, tier, status,
                 confidence_score, match_explanation, created_at
             ) VALUES (
-                :match_id, :pass, :tier, :status,
-                :confidence, :explanation::jsonb, :now
+                :group_id, :pass, :tier, :status,
+                :confidence, CAST(:explanation AS jsonb), :now
             )
             ON CONFLICT DO NOTHING
             RETURNING id
         """), {
-            "match_id":    match_id,
+            "group_id":    str(deterministic_group_id),
             "pass":        candidate.matched_pass.value,
             "tier":        candidate.tier.value,
             "status":      status,
@@ -361,10 +382,12 @@ def _persist_matches(
             "explanation": json.dumps(candidate.explanation),
             "now":         now,
         })
-
-        if not result.fetchone():
-            # ON CONFLICT — already inserted in a previous run
+        
+        row = result.fetchone()
+        if not row:
             continue
+            
+        match_id = row[0]
 
         # Insert match members
         for member in candidate.members:
@@ -446,20 +469,19 @@ def _persist_exceptions(
     persisted = 0
 
     for exc in exceptions:
-        exc_id = str(uuid.uuid4())
         conn.execute(text("""
             INSERT INTO exceptions (
-                id, record_type, record_id,
+                record_type, record_id,
                 category, dollar_value,
                 run_id, created_at
             ) VALUES (
-                :exc_id, :record_type, :record_id,
+                :record_type, :record_id,
                 :category, :dollar_value,
                 :run_id, :now
             )
             ON CONFLICT (record_type, record_id) DO NOTHING
+            RETURNING id
         """), {
-            "exc_id":       exc_id,
             "record_type":  exc.record_type.value,
             "record_id":    exc.record_id,
             "category":     exc.suggested_category.value,
@@ -471,15 +493,13 @@ def _persist_exceptions(
         # Audit log for every exception (AGENTS.md rule 3)
         conn.execute(text("""
             INSERT INTO audit_log (
-                id, event_type, entity_type, entity_id,
-                actor, payload, created_at
+                entity_type, entity_id,
+                action, actor, rationale, occurred_at
             ) VALUES (
-                :id, 'exception_queued', :record_type, :record_id,
-                :actor, :payload::jsonb, :now
+                'exception', :record_id,
+                'exception_raised', :actor, CAST(:payload AS jsonb), :now
             )
         """), {
-            "id":          str(uuid.uuid4()),
-            "record_type": exc.record_type.value,
             "record_id":   str(exc.record_id),
             "actor":       f"engine/{run_id}",
             "payload":     json.dumps({
@@ -527,17 +547,19 @@ def _write_audit_log(
         "explanation_summary": candidate.explanation.get("human_readable_summary", ""),
     }
 
+    action = "auto_matched" if candidate.tier.value == "hootl" else "pending_review"
+
     conn.execute(text("""
         INSERT INTO audit_log (
-            id, event_type, entity_type, entity_id,
-            actor, payload, created_at
+            entity_type, entity_id,
+            action, actor, rationale, occurred_at
         ) VALUES (
-            :id, 'match_created', 'match', :match_id,
-            :actor, :payload::jsonb, :now
+            'match', :match_id,
+            :action, :actor, CAST(:payload AS jsonb), :now
         )
     """), {
-        "id":       str(uuid.uuid4()),
         "match_id": match_id,
+        "action":   action,
         "actor":    f"engine/{run_id}",
         "payload":  json.dumps(payload),
         "now":      now,

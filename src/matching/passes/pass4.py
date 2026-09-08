@@ -214,6 +214,7 @@ def run_pass4(
         # Remove matched records from unmatched sets
         for gid in matched_gw_ids:
             result.unmatched_gateway_ids.discard(gid)
+            gw_by_id.pop(gid, None)
         result.unmatched_bank_ids.discard(bank["id"])
         for lid in matched_ledger_ids:
             result.unmatched_ledger_ids.discard(lid)
@@ -226,6 +227,7 @@ def run_pass4(
     result.stats = {
         "split_matches_found": split_matches,
         "pool_size_exceeded":  pool_exceeded_count,
+        "ambiguous_count":     ambiguous_count,
         "ambiguous_groupings": ambiguous_count,
         "state_cap_aborts":    state_cap_aborts,
     }

@@ -128,6 +128,8 @@ class FellegiSunterScorer:
             denom = max(1.0 - fc.u, 1e-10)
             numer = max(1.0 - fc.m, 1e-10)
             self._disagree_weights[name] = math.log2(numer / denom)
+        
+        self.max_score = sum(self._agree_weights.values())
 
     def score_pair(self, gw: dict, bank: dict) -> ScoredPair:
         """
@@ -191,7 +193,8 @@ class FellegiSunterScorer:
                 try:
                     gw["_parsed_net"] = _decimal(gw.get("expected_net_amount") or gw.get("gross_amount", "0"))
                     gw["_parsed_date"] = _to_date(gw["transaction_ts"])
-                except Exception:
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.warning("F-S precompute failed for gw=%s: %s", gw.get("id"), e)
                     gw["_parsed_net"] = Decimal("0")
                     # Fallback date far in the past to ensure it fails blocking
                     gw["_parsed_date"] = date(1970, 1, 1)
@@ -238,7 +241,7 @@ class FellegiSunterScorer:
 
             # Build MatchCandidate
             confidence = Decimal(str(
-                min(1.0, max(0.0, best.composite_score / (self.threshold_upper * 2)))
+                min(1.0, max(0.0, best.composite_score / max(1.0, self.max_score)))
             )).quantize(Decimal("0.0001"))
 
             candidate = MatchCandidate(
@@ -281,14 +284,30 @@ def _passes_blocking(
     if gw.get("currency", "") != currency:
         return False
 
-    gw_net = gw.get("_parsed_net")
-    if gw_net is None or abs(gw_net - bank_net) > BLOCKING_AMOUNT_BAND:
+    # Accept pre-parsed value (set by score_residuals) or compute from raw dict
+    gw_net_raw = gw.get("_parsed_net")
+    if gw_net_raw is None:
+        try:
+            gw_net_raw = Decimal(gw.get("expected_net_amount") or gw.get("gross_amount", ""))
+        except (ValueError, TypeError):
+            gw_net_raw = None
+    if gw_net_raw is None or abs(gw_net_raw - bank_net) > BLOCKING_AMOUNT_BAND:
         return False
 
-    gw_date = gw.get("_parsed_date")
-    if gw_date is None:
+    gw_date_raw = gw.get("_parsed_date")
+    if gw_date_raw is None:
+        try:
+            from datetime import datetime
+            ts = gw.get("transaction_ts", "")
+            if isinstance(ts, str):
+                gw_date_raw = date.fromisoformat(ts[:10])
+            elif isinstance(ts, datetime):
+                gw_date_raw = ts.date()
+        except (ValueError, TypeError, KeyError):
+            gw_date_raw = None
+    if gw_date_raw is None:
         return False
-    lag = abs((bank_date - gw_date).days)
+    lag = abs((bank_date - gw_date_raw).days)
     if lag > BLOCKING_DATE_WINDOW:
         return False
 

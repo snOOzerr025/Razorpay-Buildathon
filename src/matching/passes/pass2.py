@@ -113,6 +113,11 @@ def run_pass2(
         bank_net       = _decimal(bank["net_amount"])
         bank_date      = _to_date(bank["value_date"])
 
+        # Skip negative / zero net settlements — refund credits or voided batches
+        # should not match against positive capture amounts.
+        if bank_net <= 0:
+            continue
+
         # Collect ALL gateway records that satisfy criteria for this settlement
         qualifying: list[dict] = []
         bank_int = int(bank_net)

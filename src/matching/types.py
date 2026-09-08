@@ -35,6 +35,7 @@ class MatchPass(str, Enum):
     PASS2_TOLERANCE     = "pass2_tolerance"
     PASS3_REFUND        = "pass3_refund"
     PASS4_SPLIT         = "pass4_split"
+    PASS5_EXCEPTION     = "pass5_exception"   # Routes to exception queue, not a match.
     FELLEGI_SUNTER      = "fellegi_sunter"
     SEMANTIC_EMBEDDING  = "semantic_embedding"
 

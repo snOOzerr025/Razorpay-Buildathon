@@ -98,6 +98,16 @@ def run_pass3(
     # Index all gateway records by ID for parent lookups
     gw_by_id: dict[int, dict] = {gw["id"]: gw for gw in gateway_records}
 
+    # Also index by external_transaction_id — the synthetic generator sets
+    # parent_transaction_id to the parent's external_transaction_id (e.g.
+    # "TXNGM0000546785"), so we need both lookup paths to find the parent.
+    # In production this is a no-op since the FK is the integer canonical id.
+    gw_by_ext_id: dict[str, dict] = {
+        gw.get("external_transaction_id", ""): gw
+        for gw in gateway_records
+        if gw.get("external_transaction_id")
+    }
+
     # Index bank records by (currency, net_amount bucket) for fast lookup
     # Use negative amounts for refund credits — some gateways send negative, some positive
     bank_by_currency: dict[str, list[dict]] = {}
@@ -106,8 +116,11 @@ def run_pass3(
             continue
         bank_by_currency.setdefault(bank["currency"], []).append(bank)
 
-    gw_by_ext_id = {g["external_transaction_id"]: g for g in gateway_records}
-    
+    # Note: parent_transaction_id in canonical_transactions is a DB integer
+    # id (FK to canonical_transactions.id), not an external reference string.
+    # We look it up via gw_by_id — never via external_transaction_id. The
+    # gw_by_ext_id index intentionally isn't built here; Pass 3 never needs it.
+
     diag_refunds_entering = 0
     diag_with_parent = 0
     diag_parent_lookups_succeeded = 0
@@ -134,7 +147,10 @@ def run_pass3(
             
         diag_with_parent += 1
 
-        parent = gw_by_ext_id.get(parent_id)
+        parent = gw_by_id.get(parent_id)
+        if not parent:
+            # Try by external_transaction_id — the generator uses this convention
+            parent = gw_by_ext_id.get(str(parent_id))
         if not parent:
             logger.warning(
                 "Pass3: parent_transaction_id=%s not found in loaded records for refund gw=%s",

@@ -284,7 +284,7 @@ def _decimal(value: object) -> Decimal:
 def _to_date(value: object) -> date:
     """Convert a date / datetime / ISO string to a ``datetime.date``."""
     if isinstance(value, date):
-        return value if not hasattr(value, "date") else value  # type: ignore[return-value]
+        return value if not hasattr(value, "date") else value.date()
     from datetime import datetime
     s = str(value).strip()
     # Try date-only first (YYYY-MM-DD)

@@ -240,7 +240,7 @@ class SemanticMatcher:
             if best_gw is None or best_sim < self.similarity_threshold:
                 continue
 
-            confidence = Decimal(str(round(best_sim, 4))).quantize(Decimal("0.0001"))
+            confidence = Decimal(str(best_sim)).quantize(Decimal("0.0001"))
 
             candidate = MatchCandidate(
                 matched_pass=MatchPass.SEMANTIC_EMBEDDING,
@@ -252,7 +252,7 @@ class SemanticMatcher:
                 explanation={
                     "pass": MatchPass.SEMANTIC_EMBEDDING.value,
                     "similarity": {
-                        "score":     round(best_sim, 4),
+                        "score":     Decimal(str(best_sim)).quantize(Decimal("0.0001")),
                         "threshold": self.similarity_threshold,
                         "above_threshold": best_sim >= self.similarity_threshold,
                         "method": "sentence-transformers" if not self._use_tfidf else "tfidf-fallback",

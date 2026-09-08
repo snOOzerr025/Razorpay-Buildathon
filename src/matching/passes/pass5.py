@@ -88,13 +88,11 @@ def run_pass5(
     by category for the dashboard reporting template.
     """
     result = PassResult(
-        pass_name=MatchPass.PASS4_SPLIT,   # placeholder — engine sets correctly
+        pass_name=MatchPass.PASS5_EXCEPTION,   # this pass routes to exceptions
         unmatched_gateway_ids=set(unmatched_gateway_ids),
         unmatched_bank_ids=set(unmatched_bank_ids),
         unmatched_ledger_ids=set(unmatched_ledger_ids),
     )
-    # Correct the pass name for this output
-    result.pass_name = MatchPass.PASS1_EXACT   # will be overridden by engine
 
     exceptions: list[UnmatchedRecord] = []
 

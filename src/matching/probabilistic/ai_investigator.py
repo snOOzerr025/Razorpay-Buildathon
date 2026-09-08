@@ -54,12 +54,14 @@ def compute_hard_facts(gw: dict, bank: dict) -> HardFacts:
     """Compute mathematical boundaries and facts for an exception pair."""
     try:
         gw_net = Decimal(str(gw.get("expected_net_amount") or gw.get("gross_amount", "0")))
-    except Exception:
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning("compute_hard_facts failed to parse gw_net for gw=%s: %s", gw.get("id"), e)
         gw_net = Decimal("0")
 
     try:
         bank_net = Decimal(str(bank.get("net_amount", "0")))
-    except Exception:
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning("compute_hard_facts failed to parse bank_net for bank=%s: %s", bank.get("id"), e)
         bank_net = Decimal("0")
 
     amount_diff = str((bank_net - gw_net).quantize(Decimal("0.01")))
@@ -79,16 +81,19 @@ def compute_hard_facts(gw: dict, bank: dict) -> HardFacts:
     narration = str(bank.get("narration", "")).strip().upper()
     ref_sim = 1.0 if (ext_id and ext_id in narration) else 0.0
 
-    # Fee equation: bank = gross - mdr - gst - tds
+    # Fee equation: use src.money (single source of truth, mirrors DB GENERATED column)
     try:
-        gross = Decimal(str(gw.get("gross_amount", "0")))
-        mdr = gross * Decimal(str(gw.get("mdr_fee_pct") or "0"))
-        gst = mdr * Decimal(str(gw.get("gst_rate") or "0.18"))
-        tds = Decimal(str(gw.get("tds_amount") or "0"))
-        expected = gross - mdr - gst - tds
+        from src.money import expected_net_amount
+        expected = expected_net_amount(
+            gw.get("gross_amount", "0"),
+            gw.get("mdr_fee_pct"),
+            gw.get("gst_rate", "0.18"),
+            gw.get("tds_amount", "0"),
+        )
         fee_eq_diff = bank_net - expected
         fee_eq = f"bank_net ({bank_net}) - expected ({expected}) = {fee_eq_diff}"
-    except Exception:
+    except (ValueError, TypeError, KeyError) as e:
+        logger.warning("compute_hard_facts failed fee math for gw=%s: %s", gw.get("id"), e)
         fee_eq = "INVALID_MATH"
 
     return HardFacts(
@@ -111,7 +116,7 @@ def investigate_exception(
     Role 2: Determine why the pair failed and recommend an action.
     Uses a deterministic heuristic by default. Optionally calls LLM if enabled.
     """
-    if use_llm and os.environ.get("OPENAI_API_KEY"):
+    if use_llm and os.environ.get("GEMINI_API_KEY"):
         return _investigate_with_llm(hard_facts, gw, bank)
     
     return _investigate_with_heuristic(hard_facts, gw, bank)
@@ -161,19 +166,67 @@ def _investigate_with_heuristic(
         claimed_equation="unknown"
     )
 
+def _sanitize_struct(obj: Any) -> Any:
+    """Recursively sanitize string fields in dictionaries and lists."""
+    if isinstance(obj, str):
+        return sanitize_text(obj)
+    elif isinstance(obj, dict):
+        return {k: _sanitize_struct(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_struct(v) for v in obj]
+    return obj
+
+
 def _investigate_with_llm(
     hard_facts: HardFacts, gw: dict, bank: dict
 ) -> InvestigationResult:
     """Optional LLM implementation using OpenAI (not active by default)."""
+    # Sanitize string fields before LLM prompt (AGENTS.md Rule 4)
+    safe_gw = _sanitize_struct(gw)
+    safe_bank = _sanitize_struct(bank)
+
     # In a real run with this flag enabled, this would call openai.chat.completions
-    # For now, if the LLM fails or hits rate limits, fallback to heuristic:
+    # We use Gemini 2.0 Flash instead
     try:
-        # LLM logic goes here, enforcing JSON schema output
-        pass 
+        from src.api.routes.chat import get_genai_client
+        from google.genai import types
+        import json
+
+        client = get_genai_client()
+        if client:
+            prompt = f"""
+            You are an expert payment reconciliation investigator.
+            Analyze the discrepancy between a Gateway Record and a Bank Settlement Record.
+            
+            Hard Facts: {hard_facts.__dict__}
+            Gateway Record: {safe_gw}
+            Bank Record: {safe_bank}
+            
+            Respond ONLY with a JSON object matching this schema exactly:
+            {{
+                "likely_explanation": "string (clear summary of the discrepancy)",
+                "evidence": ["string", "string"],
+                "confidence": "HIGH" or "MEDIUM" or "LOW",
+                "action": "RESOLVE" or "NEEDS_REVIEW" or "UNRESOLVED",
+                "claimed_equation": "string (the equation you verified, e.g. bank_net == expected_net_amount, or unknown)"
+            }}
+            """
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.0
+                )
+            )
+            data = json.loads(response.text)
+            return InvestigationResult(**data)
+        else:
+            logger.warning("No Gemini client available (API key missing). Falling back to heuristic.")
     except Exception as e:
         logger.error(f"LLM Investigator failed: {e}. Falling back to heuristic.")
         
-    return _investigate_with_heuristic(hard_facts, gw, bank)
+    return _investigate_with_heuristic(hard_facts, safe_gw, safe_bank)
 
 
 # ---------------------------------------------------------------------------

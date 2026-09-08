@@ -4,7 +4,10 @@ Reconciliation endpoint for triggering the matching engine.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import io
+import csv
+import time
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -12,6 +15,7 @@ from src.api.dependencies import verify_token, get_db_session
 from src.api.schemas import ReconcileRunRequest, ReconcileRunResponse
 from src.db.engine import get_raw_connection
 from src.matching.engine import run_matching_engine, EngineRunSummary
+from scripts.run_scale_test import run_in_memory_engine
 
 logger = logging.getLogger(__name__)
 
@@ -88,3 +92,101 @@ def get_run_status(run_id: str, db: Session = Depends(get_db_session)) -> dict:
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Run polling is not implemented. /run executes synchronously."
     )
+
+
+def _load_csv_from_upload(upload_file: UploadFile) -> list[dict]:
+    from src.money import expected_net_amount  # local import to avoid top-level cycle
+    content = upload_file.file.read().decode('utf-8-sig')
+    reader = csv.DictReader(io.StringIO(content))
+    records = []
+    for i, row in enumerate(reader):
+        row["id"] = i + 1
+        if "gross_amount" in row:
+            net = expected_net_amount(
+                row["gross_amount"],
+                row.get("mdr_fee_pct"),
+                row.get("gst_rate", "0.18"),
+                row.get("tds_amount", "0"),
+            )
+            row["expected_net_amount"] = str(net)
+        if "expected_amount" in row:
+            row["status"] = row.get("status", "captured")
+        records.append(row)
+    return records
+
+import tempfile
+import os
+from pathlib import Path
+from src.ingestion.ingest import load_gateway, load_bank, load_ledger
+
+from typing import Optional
+
+@router.post(
+    "/upload",
+    response_model=ReconcileRunResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(verify_token)]
+)
+def run_reconciliation_upload(
+    gateway: UploadFile = File(...),
+    bank: UploadFile = File(...),
+    ledger: Optional[UploadFile] = File(None),
+) -> dict:
+    """
+    Ingest uploaded files into PostgreSQL and trigger the matching engine.
+    """
+    logger.info(f"Reconciliation upload requested. Gateway: {gateway.filename}, Bank: {bank.filename}")
+    
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            gw_path = Path(tmpdir) / "gateway.csv"
+            bk_path = Path(tmpdir) / "bank.csv"
+            
+            with open(gw_path, "wb") as f: f.write(gateway.file.read())
+            with open(bk_path, "wb") as f: f.write(bank.file.read())
+            
+            if ledger:
+                led_path = Path(tmpdir) / "ledger.csv"
+                with open(led_path, "wb") as f: f.write(ledger.file.read())
+
+            with get_raw_connection() as conn:
+                logger.info("Ingesting gateway data...")
+                load_gateway(gw_path, conn)
+                logger.info("Ingesting bank data...")
+                load_bank(bk_path, conn)
+                
+                if ledger:
+                    logger.info("Ingesting ledger data...")
+                    load_ledger(led_path, conn)
+
+                logger.info("Running reconciliation engine...")
+                summary: EngineRunSummary = run_matching_engine(conn)
+        
+        # Calculate throughput
+        throughput = 0
+        if summary.duration_seconds > 0:
+            throughput = int(summary.total_records_loaded / summary.duration_seconds)
+            
+        matches_by_pass = {}
+        for stat in summary.pass_stats:
+            pass_name = stat.get("pass", "unknown")
+            matched = stat.get("matched", 0)
+            if pass_name != "Pass 5 — Exception":
+                matches_by_pass[pass_name] = matched
+                
+        return {
+            "run_id": summary.run_id,
+            "status": "completed",
+            "records_processed": summary.total_records_loaded,
+            "duration_ms": int(summary.duration_seconds * 1000),
+            "throughput_per_sec": throughput,
+            "matches_by_pass": matches_by_pass,
+            "exceptions_created": summary.total_exceptions,
+        }
+    except Exception as exc:
+        logger.exception("Database ingestion and reconciliation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Reconciliation failed: {exc}"
+        )
+

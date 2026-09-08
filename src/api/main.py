@@ -78,8 +78,12 @@ from src.api.routes.reconcile import router as reconcile_router
 from src.api.routes.matches import router as matches_router
 from src.api.routes.exceptions import router as exceptions_router
 from src.api.routes.dashboard import router as dashboard_router
+from src.api.routes.chat import router as chat_router
+from src.api.routes.audit import router as audit_router
 
 app.include_router(reconcile_router, prefix="/api/v1/reconcile", tags=["Reconciliation"])
 app.include_router(matches_router, prefix="/api/v1/matches", tags=["Matches"])
 app.include_router(exceptions_router, prefix="/api/v1/exceptions", tags=["Exceptions"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["Dashboard"])
+app.include_router(chat_router, prefix="/api/v1/chat", tags=["Chatbot"])
+app.include_router(audit_router, prefix="/api/v1/audit", tags=["Audit"])

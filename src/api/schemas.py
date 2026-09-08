@@ -48,11 +48,13 @@ class ReconcileRunResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class MatchApproveRequest(BaseModel):
-    reviewer_id: str
+    # reviewer_id is accepted but ignored — actor comes from the authenticated
+    # principal (P1-15). Keeping it as optional so old clients still work.
+    reviewer_id: str | None = None
     note: str | None = None
 
 class MatchRejectRequest(BaseModel):
-    reviewer_id: str
+    reviewer_id: str | None = None
     reason: str
 
 
@@ -61,14 +63,16 @@ class MatchRejectRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ExceptionResolveRequest(BaseModel):
+    # resolved_by is accepted but ignored — actor comes from the authenticated
+    # principal (P1-15).
     resolution_note: str
-    resolved_by: str
+    resolved_by: str | None = None
 
 class ExceptionCompensateRequest(BaseModel):
-    # Depending on how compensate is implemented, maybe amount or note
     amount: Decimal | None = None
     note: str
-    resolved_by: str
+    # resolved_by accepted but ignored — actor from auth context (P1-15).
+    resolved_by: str | None = None
 
 
 # ---------------------------------------------------------------------------

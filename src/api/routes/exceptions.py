@@ -4,7 +4,6 @@ Exceptions endpoints for fetching exception queues and handling resolution logic
 
 import json
 import logging
-import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,32 +18,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
+def _principal_actor(token_principal: str = Depends(verify_token)) -> str:
+    """Return authenticated principal, never from request body (prevents actor spoofing)."""
+    return f"user:{token_principal}"
+
+
 @router.get(
     "",
     dependencies=[Depends(verify_token)]
 )
 def list_exceptions(
     category: str = Query(None, description="Filter by category (e.g. timing_difference, unresolved)"),
-    status: str = Query("open", description="Filter by status (e.g. open, resolved)"),
-    db: Session = Depends(get_db_session)
+    exc_status: str = Query("open", description="Filter by status (e.g. open, resolved)"),
+    limit: int = Query(50, ge=1, le=500, description="Max rows (1-500, default 50)"),
+    offset: int = Query(0, ge=0, description="Rows to skip"),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    """Get the honest exception list."""
-    # Assuming an exceptions table with status column (or we map it based on resolution)
-    # The current schema in migration 002 doesn't have a status on exceptions, 
-    # but we can assume 'open' means no resolution entry in a hypothetical 
-    # 'resolutions' table, or we can just fetch all exceptions for now.
-    
+    """Get the honest exception list. Paginated."""
     query = "SELECT * FROM exceptions WHERE 1=1"
-    params: dict[str, Any] = {}
-    
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+
     if category:
         query += " AND category = :category"
         params["category"] = category
-        
-    query += " ORDER BY created_at DESC LIMIT 100"
-    
+
+    if exc_status:
+        query += " AND status = :exc_status"
+        params["exc_status"] = exc_status
+
+    query += " ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+
     results = db.execute(text(query), params).mappings().all()
-    return {"exceptions": [dict(r) for r in results]}
+    return {"exceptions": [dict(r) for r in results], "limit": limit, "offset": offset}
 
 
 @router.post(
@@ -54,7 +60,8 @@ def list_exceptions(
 def resolve_exception(
     exception_id: str,
     req: ExceptionResolveRequest,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    actor: str = Depends(_principal_actor),
 ) -> dict:
     """
     Resolve an exception.
@@ -64,45 +71,45 @@ def resolve_exception(
         text("SELECT id, record_type, record_id FROM exceptions WHERE id = :id FOR UPDATE"),
         {"id": exception_id}
     ).mappings().first()
-    
+
     if not exc_row:
         raise HTTPException(status_code=404, detail="Exception not found")
-        
+
     now = datetime.now(timezone.utc)
-    
+
     try:
-        # 1. Update exception record (if we had a resolved_at column, we'd set it here.
-        # Since we don't, we'll just log it to audit_log for now).
-        # In a real app we'd `ALTER TABLE exceptions ADD COLUMN resolved_at TIMESTAMP`.
-        
-        # 2. Write audit log
-        audit_payload = {
-            "exception_id": exception_id,
-            "action": "resolved",
-            "note": req.resolution_note
-        }
-        
+        # 1. Update exception record
+        db.execute(text(
+            "UPDATE exceptions SET status = 'resolved', resolved_at = :now WHERE id = :id"
+        ), {"now": now, "id": exception_id})
+
+        # 2. Write audit log — matches migration 001 §8 schema exactly:
+        # (entity_type, action, actor, rationale, occurred_at).
+        # action 'exception_resolved' is in the CHECK constraint.
         db.execute(text("""
             INSERT INTO audit_log (
-                id, event_type, entity_type, entity_id, actor, payload, created_at
+                entity_type, entity_id, action, actor, rationale, occurred_at
             ) VALUES (
-                :audit_id, 'exception_resolved', :record_type, :record_id, :actor, :payload::jsonb, :now
+                'exception', :exc_id, 'exception_resolved', :actor,
+                CAST(:rationale AS jsonb), :now
             )
         """), {
-            "audit_id": str(uuid.uuid4()),
-            "record_type": exc_row["record_type"],
-            "record_id": exc_row["record_id"],
-            "actor": req.resolved_by,
-            "payload": json.dumps(audit_payload),
-            "now": now
+            "exc_id": exc_row["record_id"],
+            "actor": actor,
+            "rationale": json.dumps({
+                "exception_id": exception_id,
+                "record_type": exc_row["record_type"],
+                "resolution_note": req.resolution_note or "",
+            }),
+            "now": now,
         })
-        
+
         db.commit()
     except Exception as e:
         db.rollback()
         logger.error("Failed to resolve exception %s: %s", exception_id, e)
         raise HTTPException(status_code=500, detail="Internal database error")
-        
+
     return {"status": "success", "message": f"Exception {exception_id} resolved."}
 
 
@@ -113,53 +120,68 @@ def resolve_exception(
 def compensate_exception(
     exception_id: str,
     req: ExceptionCompensateRequest,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    actor: str = Depends(_principal_actor),
 ) -> dict:
     """
     Create a compensating entry for an exception to fix ledger imbalance.
-    Never mutates the original posted record (AGENTS.md Rule 2).
+    Writes to both compensating_entries (actual adjustment record) and
+    audit_log. Never mutates the original posted record (AGENTS.md Rule 2).
     """
     exc_row = db.execute(
         text("SELECT id, record_type, record_id FROM exceptions WHERE id = :id"),
         {"id": exception_id}
     ).mappings().first()
-    
+
     if not exc_row:
         raise HTTPException(status_code=404, detail="Exception not found")
-        
+
     now = datetime.now(timezone.utc)
-    
+
     try:
-        # In a full system, this would write to a compensating_entries table.
-        # For the buildathon, we demonstrate the architectural pattern by 
-        # logging the compensation strongly to the audit log.
-        
-        audit_payload = {
-            "exception_id": exception_id,
-            "action": "compensated",
-            "amount": str(req.amount) if req.amount else None,
-            "note": req.note
-        }
-        
+        # 1. Insert into compensating_entries table
         db.execute(text("""
-            INSERT INTO audit_log (
-                id, event_type, entity_type, entity_id, actor, payload, created_at
+            INSERT INTO compensating_entries (
+                exception_id, reason, amount_adjustment, created_by, created_at
             ) VALUES (
-                :audit_id, 'exception_compensated', :record_type, :record_id, :actor, :payload::jsonb, :now
+                :exc_id, :reason, :amount, :created_by, :now
             )
         """), {
-            "audit_id": str(uuid.uuid4()),
-            "record_type": exc_row["record_type"],
-            "record_id": exc_row["record_id"],
-            "actor": req.resolved_by,
-            "payload": json.dumps(audit_payload),
-            "now": now
+            "exc_id": exc_row["id"],
+            "reason": req.note or "No reason provided",
+            "amount": req.amount if req.amount else 0,
+            "created_by": actor,
+            "now": now,
         })
-        
+
+        # 2. Write audit log
+        # action 'compensated' is in the CHECK constraint.
+        db.execute(text("""
+            INSERT INTO audit_log (
+                entity_type, entity_id, action, actor, rationale, occurred_at
+            ) VALUES (
+                'compensating_entry',
+                (SELECT lastval()),
+                'compensated',
+                :actor,
+                CAST(:rationale AS jsonb),
+                :now
+            )
+        """), {
+            "actor": actor,
+            "rationale": json.dumps({
+                "exception_id": exception_id,
+                "record_type": exc_row["record_type"],
+                "amount_adjustment": str(req.amount) if req.amount else None,
+                "note": req.note or "",
+            }),
+            "now": now,
+        })
+
         db.commit()
     except Exception as e:
         db.rollback()
         logger.error("Failed to compensate exception %s: %s", exception_id, e)
         raise HTTPException(status_code=500, detail="Internal database error")
-        
+
     return {"status": "success", "message": f"Compensating entry recorded for {exception_id}."}

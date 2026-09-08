@@ -38,8 +38,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     Verify the static bearer token.
     For buildathon scope, we check against an API_KEY environment variable.
     """
-    expected_token = os.environ.get("API_KEY", "dev_token_123")
-    if credentials.credentials != expected_token:
+    expected_token = os.environ.get("API_KEY")
+    if not expected_token or credentials.credentials != expected_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",

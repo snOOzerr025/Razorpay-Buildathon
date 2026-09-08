@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-02T22:32:05.909416+00:00",
+  "timestamp": "2026-09-07T17:30:20.294257+00:00",
   "gateway_record": {
     "gt_match_id": "GM000046",
     "processor_id": "razorpay_gateway",
@@ -36,23 +36,21 @@
     "amount_diff": "0.00",
     "date_diff": 3,
     "reference_similarity": 0.0,
-    "fee_equation_result": "bank_net (1078.27) - expected (1078.2739996000) = -0.0039996000",
+    "fee_equation_result": "bank_net (1078.27) - expected (1078.27) = 0.00",
     "settlement_window_status": "WITHIN_WINDOW"
   },
   "role_2_ai_output": {
-    "likely_explanation": "No standard heuristic pattern matched. Requires human review.",
+    "likely_explanation": "Gateway net amount did not perfectly match bank settlement, but manual fee recalculation perfectly matches the deposited amount.",
     "evidence": [
-      "amount_diff != 0",
-      "fee_equation != 0",
-      "not a simple late settlement"
+      "gross - mdr - gst - tds == bank_amount"
     ],
-    "confidence": "LOW",
-    "action": "UNRESOLVED",
-    "claimed_equation": "unknown"
+    "confidence": "HIGH",
+    "action": "RESOLVE",
+    "claimed_equation": "gross - mdr - gst - tds == bank_net"
   },
   "role_3_verification": {
-    "passed": false,
-    "equation_check": "No equation provided by investigator",
-    "final_action": "UNRESOLVED"
+    "passed": true,
+    "equation_check": "bank_net (1078.27) - expected (1078.27) = 0.00",
+    "final_action": "RESOLVE"
   }
 }

@@ -282,7 +282,7 @@ def upgrade() -> None:
     ]
     for tbl in _append_only_tables:
         op.execute(f"GRANT SELECT, INSERT ON TABLE {tbl} TO recon_app;")
-        op.execute(f"GRANT USAGE, SELECT ON SEQUENCE {tbl}_id_seq TO recon_app;")
+    op.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO recon_app;")
 
     # exceptions.status / resolved_* fields are the one narrow update path
     # (open → investigating → resolved), but only those columns.

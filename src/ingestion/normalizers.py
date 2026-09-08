@@ -57,26 +57,44 @@ def normalize_gateway_transaction(
     raw: dict[str, str],
     raw_event_id: int,
 ) -> dict[str, Any]:
-    """Normalize one gateway CSV row into a canonical_transactions INSERT dict.
+    """Normalize one gateway CSV row into a canonical_transactions INSERT dict."""
+    # Map from custom headers if present
+    ext_id = raw.get("transaction_id", raw.get("external_transaction_id", ""))
+    raw["external_transaction_id"] = ext_id
+    
+    if "created_at" in raw and "transaction_ts" not in raw:
+        # Some dates lack time, let's append it
+        val = raw["created_at"].strip()
+        raw["transaction_ts"] = val if "T" in val else f"{val}T00:00:00Z"
+        
+    if "processor_account_id" not in raw:
+        raw["processor_account_id"] = "razorpay"
+        
+    if "tds_amount" not in raw:
+        raw["tds_amount"] = "0.00"
 
-    Parameters
-    ----------
-    raw:
-        Dict of {column_name: string_value} from the CSV row.
-    raw_event_id:
-        The id of the already-inserted raw_events row.
+    gross = _parse_amount(raw.get("gross_amount", "0"), "gross_amount")
+    
+    # Calculate rates if raw provides absolute fees instead of percentages
+    if "mdr_fee" in raw and "mdr_fee_pct" not in raw:
+        fee_abs = _parse_amount(raw["mdr_fee"], "mdr_fee")
+        if gross > 0:
+            # mdr_fee_pct is used as a fraction (e.g. 0.02 for 2%) in the DB formula
+            raw["mdr_fee_pct"] = str(round(fee_abs / gross, 4))
+        else:
+            raw["mdr_fee_pct"] = "0.0000"
+            
+    if "gst_on_fee" in raw and "gst_rate" not in raw:
+        gst_abs = _parse_amount(raw["gst_on_fee"], "gst_on_fee")
+        fee_abs = _parse_amount(raw.get("mdr_fee", "0"), "mdr_fee")
+        if fee_abs > 0:
+            # gst_rate is used as a fraction (e.g. 0.18 for 18%) in the DB formula
+            raw["gst_rate"] = str(round(gst_abs / fee_abs, 4))
+        else:
+            raw["gst_rate"] = "0.0000"
 
-    Returns
-    -------
-    A dict suitable for passing to::
-
-        conn.execute(text("INSERT INTO canonical_transactions ..."), result)
-
-    Note: ``expected_net_amount`` is NOT in the returned dict.
-    """
     _require_fields(raw, [
         "external_transaction_id",
-        "order_id",
         "gross_amount",
         "currency",
         "mdr_fee_pct",
@@ -94,10 +112,9 @@ def normalize_gateway_transaction(
             f"Expected one of {sorted(_GATEWAY_STATUSES)}"
         )
 
-    gross       = _parse_amount(raw["gross_amount"],  "gross_amount")
-    mdr_fee_pct = _parse_rate(raw["mdr_fee_pct"],    "mdr_fee_pct")
-    gst_rate    = _parse_rate(raw["gst_rate"],         "gst_rate")
-    tds_amount  = _parse_amount(raw["tds_amount"],    "tds_amount")
+    mdr_fee_pct = _parse_rate(raw["mdr_fee_pct"], "mdr_fee_pct")
+    gst_rate    = _parse_rate(raw["gst_rate"], "gst_rate")
+    tds_amount  = _parse_amount(raw["tds_amount"], "tds_amount")
 
     parent_id = raw.get("parent_transaction_id", "").strip()
     if parent_id == "":
@@ -132,7 +149,23 @@ def normalize_bank_settlement(
     raw_event_id: int,
 ) -> dict[str, Any]:
     """Normalize one bank settlement CSV row into a bank_settlements INSERT dict."""
-    _require_fields(raw, ["utr", "settlement_batch_id", "net_amount", "currency", "value_date"])
+    utr = raw.get("utr_reference", raw.get("utr", ""))
+    raw["utr"] = utr
+    
+    batch_id = raw.get("settlement_batch_id", "")
+    if not batch_id and "#" in raw.get("description", ""):
+        batch_id = raw["description"].split("#")[-1].strip()
+    raw["settlement_batch_id"] = batch_id
+    
+    if "net_amount" not in raw and ("credit_amount" in raw or "debit_amount" in raw):
+        credit = _parse_amount(raw.get("credit_amount") or "0", "credit_amount")
+        debit = _parse_amount(raw.get("debit_amount") or "0", "debit_amount")
+        raw["net_amount"] = str(credit - debit)
+        
+    if "currency" not in raw:
+        raw["currency"] = "INR"
+
+    _require_fields(raw, ["utr", "net_amount", "currency", "value_date"])
 
     net_amount = _parse_amount(raw["net_amount"], "net_amount")
 

@@ -122,7 +122,7 @@ def insert_raw_event_idempotent(
                 INSERT INTO raw_events
                     (processor_id, external_event_id, event_type, payload_hash, payload_raw)
                 VALUES
-                    (:processor_id, :external_event_id, :event_type, :payload_hash, :payload_raw::jsonb)
+                    (:processor_id, :external_event_id, :event_type, :payload_hash, CAST(:payload_raw AS jsonb))
                 ON CONFLICT (processor_id, external_event_id, event_type)
                     DO NOTHING
                 RETURNING id

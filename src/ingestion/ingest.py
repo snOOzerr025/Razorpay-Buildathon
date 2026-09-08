@@ -79,7 +79,7 @@ def load_gateway(csv_path: Path, conn) -> IngestResult:
             raw=raw,
             result=result,
             processor_id=raw.get("processor_id", "razorpay_gateway"),
-            external_event_id=raw.get("external_transaction_id", ""),
+            external_event_id=raw.get("transaction_id", raw.get("external_transaction_id", "")),
             event_type="payment.captured",
             normalizer=normalize_gateway_transaction,
             canonical_table="canonical_transactions",
@@ -93,12 +93,17 @@ def load_bank(csv_path: Path, conn) -> IngestResult:
     """Ingest a bank settlements CSV into raw_events + bank_settlements."""
     result = IngestResult(source_file=str(csv_path))
     for raw in _iter_csv(csv_path, result):
+        utr = raw.get("utr_reference", raw.get("utr", ""))
+        batch_id = raw.get("settlement_batch_id", "")
+        if not batch_id and "#" in raw.get("description", ""):
+            batch_id = raw["description"].split("#")[-1].strip()
+        
         _ingest_one_row(
             conn=conn,
             raw=raw,
             result=result,
             processor_id=raw.get("processor_id", "hdfc_bank"),
-            external_event_id=raw.get("utr", "") + "|" + raw.get("settlement_batch_id", ""),
+            external_event_id=utr + "|" + batch_id,
             event_type="settlement.batch",
             normalizer=normalize_bank_settlement,
             canonical_table="bank_settlements",
@@ -226,7 +231,7 @@ def _write_audit_log(
         text(
             """
             INSERT INTO audit_log (entity_type, entity_id, action, actor, rationale)
-            VALUES (:entity_type, :entity_id, :action, :actor, :rationale::jsonb)
+            VALUES (:entity_type, :entity_id, :action, :actor, CAST(:rationale AS jsonb))
             """
         ),
         {

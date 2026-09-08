@@ -1,294 +1,230 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import MagneticButton from '@/components/MagneticButton'
-import { progressiveRunData } from '@/lib/mock-data'
-import { motion, AnimatePresence } from 'framer-motion'
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { CheckCircle2, User, UploadCloud, FileText } from 'lucide-react'
+import { UploadCloud, FileText, ServerCrash } from 'lucide-react'
 
-const PASSES = ["Pass 1: Exact", "Pass 2: Tolerance", "Pass 3: Linkage", "Pass 4: Roll-up", "Pass 5: AI & Queue"]
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? ''
 
 export default function LiveRunPage() {
   const router = useRouter()
-  const [isRunning, setIsRunning] = useState(false)
-  const [progress, setProgress] = useState(0) // 0 to 5
-  const [isComplete, setIsComplete] = useState(false)
-  const [persona, setPersona] = useState<any>(null)
-  
-  // File upload state
   const [gatewayFile, setGatewayFile] = useState<File | null>(null)
   const [bankFile, setBankFile] = useState<File | null>(null)
+  const [ledgerFile, setLedgerFile] = useState<File | null>(null)
 
-  useEffect(() => {
-    const session = localStorage.getItem('parity_session')
-    if (session) {
-      setPersona(JSON.parse(session))
-    }
-  }, [])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const handleRun = () => {
+  // Cancel any in-flight request on unmount
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  const handleRun = async () => {
     if (!gatewayFile || !bankFile) {
-      alert("Please upload both Gateway and Bank CSV files to run the reconciliation engine.")
+      alert("Please upload Gateway and Bank CSV files.")
       return
     }
 
-    setIsRunning(true)
-    setIsComplete(false)
-    setProgress(0)
+    setIsProcessing(true)
+    setApiError(null)
 
-    const runPass = (step: number) => {
-      if (step > 5) {
-        setIsRunning(false)
-        setIsComplete(true)
-        return
+    // AbortController cleanup so we don't get an unhandled-rejection when
+    // the user navigates away mid-upload (P1-12).
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
+
+    try {
+      const formData = new FormData()
+      formData.append('gateway', gatewayFile)
+      formData.append('bank', bankFile)
+      if (ledgerFile) {
+        formData.append('ledger', ledgerFile)
       }
-      setProgress(step)
-      
-      let delay = 800;
-      if (step === 4 && persona?.id === 'cfo') delay = 2500;
-      if (step === 2 && persona?.id === 'merchant') delay = 2000;
-      
-      setTimeout(() => runPass(step + 1), delay)
-    }
 
-    setTimeout(() => runPass(1), 500)
+      const response = await fetch(`${API_BASE}/reconcile/upload`, {
+        method: 'POST',
+        headers: {
+          // The token is injected via build-time env, never hardcoded.
+          // In dev, fall back to the same dev token the FastAPI backend uses
+          // for the buildathon demo (P1-18).
+          ...(API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {}),
+        },
+        body: formData,
+        signal: abortRef.current.signal,
+      })
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null)
+        throw new Error(errData?.detail || `API error: ${response.status}`)
+      }
+
+      // Engine accepted the upload. router.push keeps us inside the SPA
+      // (P1-11) — no full-page reload.
+      router.push('/dashboard')
+    } catch (err: any) {
+      if (err.name === 'AbortError') return
+      setApiError(err.message || "Failed to connect to backend.")
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
-  // Use the 36k mock data as our baseline for uploaded files
-  const selectedData = progressiveRunData.find(d => d.size === '36k')!
-
-  const latencyData = PASSES.map((name, i) => {
-    let ms = 120 + Math.random() * 50;
-    if (i === 3) ms = persona?.id === 'cfo' ? 2450 : 1240;
-    if (i === 4) ms = persona?.id === 'finops' ? 1800 : 890;
-    if (i === 1) ms = persona?.id === 'merchant' ? 1950 : 180;
-    return { name: `P${i + 1}`, fullName: name, ms }
-  })
-
   return (
-    <div className="max-w-4xl mx-auto py-8 flex flex-col gap-12">
-      {persona && (
-        <div className="anim-stagger p-4 rounded-lg flex items-center gap-4"
-          style={{
-            backgroundColor: 'var(--accent-soft)',
-            border: '1px solid var(--accent-primary)',
-            color: 'var(--accent-primary)',
-          }}>
-          <User className="w-5 h-5" />
-          <div className="text-sm">
-            <span className="font-semibold uppercase tracking-wider block mb-1">Active User: {persona.user}</span>
-            <span style={{ color: 'var(--text-secondary)' }}>Reconciliation Engine</span>
-          </div>
-        </div>
-      )}
+    <div className="max-w-4xl mx-auto py-8 flex flex-col gap-8 anim-stagger">
 
-      <div className="anim-stagger rounded-xl p-8"
+      <div className="rounded-xl p-8"
         style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border)',
           boxShadow: 'var(--shadow-elevated)',
         }}>
-        <h2 className="text-2xl font-display mb-6" style={{ color: 'var(--text-primary)' }}>Data Ingestion</h2>
-        
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div className="mb-6">
+          <h2 className="text-2xl font-light mb-2" style={{ color: 'var(--text-primary)' }}>Run Reconciliation Engine</h2>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Upload your raw Gateway Transactions, Bank Settlement, and Merchant Ledger CSVs below. The engine will ingest, sanitize, and run the 5-pass deterministic and probabilistic matching pipeline.
+          </p>
+        </div>
+
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Gateway File Upload */}
-          <div className="p-6 flex flex-col items-center justify-center text-center rounded-lg relative transition-colors group"
+          <label
+            className="p-6 flex flex-col items-center justify-center text-center rounded-lg relative transition-colors group cursor-pointer"
             style={{
               backgroundColor: 'var(--bg-elevated)',
               border: '2px dashed var(--border)',
-            }}>
-            <input 
-              type="file" 
-              accept=".csv,.xlsx" 
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const f = e.dataTransfer.files?.[0]
+              if (f) setGatewayFile(f)
+            }}
+          >
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              className="sr-only"
               onChange={(e) => setGatewayFile(e.target.files?.[0] || null)}
             />
             {gatewayFile ? (
               <>
                 <FileText className="w-8 h-8 mb-3" style={{ color: 'var(--accent-primary)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{gatewayFile.name}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--success)' }}>Ready for processing</p>
+                <p className="text-sm font-medium break-all px-2" style={{ color: 'var(--text-primary)' }}>{gatewayFile.name}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--success)' }}>Ready</p>
               </>
             ) : (
               <>
                 <UploadCloud className="w-8 h-8 mb-3" style={{ color: 'var(--text-muted)' }} />
-                <p className="text-sm font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Gateway Capture</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Drop CSV or Excel file here</p>
+                <p className="text-sm font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Gateway</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Click or drop CSV</p>
               </>
             )}
-          </div>
+          </label>
 
           {/* Bank File Upload */}
-          <div className="p-6 flex flex-col items-center justify-center text-center rounded-lg relative transition-colors group"
+          <label
+            className="p-6 flex flex-col items-center justify-center text-center rounded-lg relative transition-colors group cursor-pointer"
             style={{
               backgroundColor: 'var(--bg-elevated)',
               border: '2px dashed var(--border)',
-            }}>
-            <input 
-              type="file" 
-              accept=".csv,.xlsx" 
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const f = e.dataTransfer.files?.[0]
+              if (f) setBankFile(f)
+            }}
+          >
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              className="sr-only"
               onChange={(e) => setBankFile(e.target.files?.[0] || null)}
             />
             {bankFile ? (
               <>
                 <FileText className="w-8 h-8 mb-3" style={{ color: 'var(--accent-primary)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{bankFile.name}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--success)' }}>Ready for processing</p>
+                <p className="text-sm font-medium break-all px-2" style={{ color: 'var(--text-primary)' }}>{bankFile.name}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--success)' }}>Ready</p>
               </>
             ) : (
               <>
                 <UploadCloud className="w-8 h-8 mb-3" style={{ color: 'var(--text-muted)' }} />
-                <p className="text-sm font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Bank Settlement</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Drop CSV or Excel file here</p>
+                <p className="text-sm font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Bank</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Click or drop CSV</p>
               </>
             )}
-          </div>
+          </label>
+
+          {/* Ledger File Upload */}
+          <label
+            className="p-6 flex flex-col items-center justify-center text-center rounded-lg relative transition-colors group cursor-pointer"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '2px dashed var(--border)',
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const f = e.dataTransfer.files?.[0]
+              if (f) setLedgerFile(f)
+            }}
+          >
+            <input
+              type="file"
+              accept=".csv,.xlsx"
+              className="sr-only"
+              onChange={(e) => setLedgerFile(e.target.files?.[0] || null)}
+            />
+            {ledgerFile ? (
+              <>
+                <FileText className="w-8 h-8 mb-3" style={{ color: 'var(--accent-primary)' }} />
+                <p className="text-sm font-medium break-all px-2" style={{ color: 'var(--text-primary)' }}>{ledgerFile.name}</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--success)' }}>Ready</p>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="w-8 h-8 mb-3" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-sm font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-secondary)' }}>Ledger</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Click or drop CSV (optional)</p>
+              </>
+            )}
+          </label>
         </div>
 
         <div className="flex justify-end">
-          <MagneticButton onClick={handleRun}>
-            <div className="px-6 py-3 font-semibold uppercase tracking-widest text-sm rounded-lg transition-colors"
-              style={!gatewayFile || !bankFile
-                ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)', cursor: 'not-allowed' }
-                : { backgroundColor: 'var(--accent-primary)', color: '#fff' }
-              }>
-              {isRunning ? 'Running...' : 'Execute Deterministic Engine'}
-            </div>
-          </MagneticButton>
+          <button
+            onClick={handleRun}
+            disabled={!gatewayFile || !bankFile || isProcessing}
+            className="px-6 py-3 font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={(!gatewayFile || !bankFile || isProcessing)
+              ? { backgroundColor: 'var(--bg-elevated)', color: 'var(--text-muted)' }
+              : { backgroundColor: 'var(--accent-primary)', color: '#fff' }
+            }>
+            {isProcessing ? 'Processing...' : 'Execute Engine'}
+          </button>
         </div>
       </div>
 
-      <AnimatePresence>
-        {(isRunning || isComplete) && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-xl overflow-hidden"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-elevated)',
-            }}
-          >
-            <div className="p-6" style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
-              <h2 className="text-xl font-display flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
-                Live Execution Trace
-                {isComplete && <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />}
-              </h2>
-            </div>
-            
-            <div className="p-8">
-              {/* Pipeline shimmer bar */}
-              {isRunning && <div className="mb-8 h-1.5 rounded-full pipeline-shimmer opacity-60" />}
+      {apiError && (
+        <div className="p-6 rounded-xl flex items-start gap-4 anim-stagger"
+          style={{
+            backgroundColor: 'var(--danger-soft)',
+            border: '1px solid var(--danger)',
+          }}>
+          <ServerCrash className="w-6 h-6 mt-0.5 flex-shrink-0" style={{ color: 'var(--danger-bright)' }} />
+          <div>
+            <h3 className="font-medium text-lg mb-1" style={{ color: 'var(--danger-bright)' }}>API Connection Failed</h3>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--danger-bright)', opacity: 0.8 }}>
+              {apiError} <br />
+              The frontend is operating in disconnected mode. Please start the Python backend and configure the API routes to process live datasets.
+            </p>
+          </div>
+        </div>
+      )}
 
-              <div className="flex flex-col gap-4 mb-12">
-                {PASSES.map((pass, i) => {
-                  const isActive = progress === i + 1
-                  const isDone = progress > i + 1
-                  return (
-                    <div key={pass} className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-sm font-bold border transition-colors ${
-                        isActive ? 'animate-pulse' : ''
-                      }`}
-                        style={
-                          isDone
-                            ? { backgroundColor: 'var(--success)', color: '#fff', borderColor: 'transparent' }
-                            : isActive
-                              ? { backgroundColor: 'var(--accent-primary)', color: '#fff', borderColor: 'transparent' }
-                              : { backgroundColor: 'transparent', borderColor: 'var(--border)', color: 'var(--text-muted)' }
-                        }
-                      >
-                        {i + 1}
-                      </div>
-                      <div className="font-display text-lg"
-                        style={{ color: isActive || isDone ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {pass}
-                      </div>
-                      {isActive && (
-                        <div className="ml-auto font-mono text-sm animate-pulse" style={{ color: 'var(--accent-primary)' }}>
-                          Processing...
-                        </div>
-                      )}
-                      {isDone && (
-                        <div className="ml-auto font-mono text-sm" style={{ color: 'var(--text-sandy)' }}>
-                          {latencyData[i].ms.toFixed(0)}ms
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {isComplete && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="pt-8 grid grid-cols-1 md:grid-cols-2 gap-12"
-                  style={{ borderTop: '1px solid var(--border)' }}
-                >
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-widest mb-6" style={{ color: 'var(--text-muted)' }}>Run Summary</h3>
-                    <div className="flex flex-col gap-4 font-mono">
-                      <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-muted)' }}>Processed Files:</span>
-                        <span style={{ color: 'var(--text-primary)' }}>2 Files</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-muted)' }}>Throughput:</span>
-                        <span style={{ color: 'var(--text-primary)' }}>{selectedData.throughput.toLocaleString()}/sec</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-muted)' }}>Match Rate:</span>
-                        <span style={{ color: 'var(--accent-primary)' }}>{selectedData.matchRate}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span style={{ color: 'var(--text-muted)' }}>Routed to Exception Queue:</span>
-                        <span style={{ color: 'var(--danger-bright)' }}>{(100 - selectedData.matchRate).toFixed(2)}%</span>
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => router.push('/exceptions')}
-                      className="mt-8 underline underline-offset-4 font-display text-lg transition-colors"
-                      style={{ color: 'var(--accent-primary)' }}
-                    >
-                      View Generated Exceptions &rarr;
-                    </button>
-                  </div>
-
-                  <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-widest mb-6" style={{ color: 'var(--text-muted)' }}>Latency by Pass (ms)</h3>
-                    <div className="h-48 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={latencyData}>
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--text-muted)' }} />
-                          <Tooltip 
-                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                            contentStyle={{
-                              backgroundColor: 'var(--bg-elevated)',
-                              color: 'var(--text-primary)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 8,
-                            }}
-                          />
-                          <Bar dataKey="ms" radius={[4, 4, 0, 0]}>
-                            {latencyData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.ms > 1500 ? '#9B3A2E' : (index === 3 ? '#C25E1A' : '#3D3D3D')} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

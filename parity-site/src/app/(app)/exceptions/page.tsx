@@ -1,60 +1,89 @@
 'use client'
 
-import { useState } from 'react'
-import { mockExceptions } from '@/lib/mock-data'
-import { Check, X, ShieldAlert, FileText, ArrowRight, Activity, Zap, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  Check, X, ShieldAlert, FileText, Activity, Zap, CheckCircle2,
+  AlertCircle, RefreshCw, Loader2
+} from 'lucide-react'
 
-export default function ExceptionsPage() {
-  const [exceptions, setExceptions] = useState(mockExceptions)
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-  const handleAction = (id: string, action: 'approve' | 'reject') => {
-    setExceptions(prev => prev.filter(e => e.id !== id))
-    // In a real app, this would trigger an API call to post the compensating entry or escalate.
-  }
+type ExceptionCategory =
+  | 'timing_difference'
+  | 'transaction_error'
+  | 'bank_initiated'
+  | 'unresolved'
 
-  if (exceptions.length === 0) {
-    return (
-      <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-32 text-center">
-        <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-          style={{ backgroundColor: 'var(--success-soft)' }}>
-          <CheckCircle2 className="w-10 h-10" style={{ color: 'var(--success)' }} />
-        </div>
-        <h2 className="text-2xl font-light mb-2" style={{ color: 'var(--text-primary)' }}>Queue Cleared</h2>
-        <p style={{ color: 'var(--text-muted)' }}>All exceptions have been reviewed and resolved.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-12 px-4 sm:px-6 lg:px-8">
-      <div className="mb-4 flex items-center justify-between anim-stagger">
-        <div>
-          <h1 className="text-3xl font-light mb-2 tracking-tight flex items-center gap-3"
-            style={{ color: 'var(--text-primary)' }}>
-            <ShieldAlert className="w-8 h-8" style={{ color: 'var(--danger-bright)' }} />
-            Human-in-the-Loop Review
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {exceptions.length} actionable exceptions requiring manual verification before posting.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-8">
-        {exceptions.map((exc, i) => (
-          <div key={exc.id} className="anim-stagger" style={{ animationDelay: `${i * 0.1}s` }}>
-            <ExceptionCard exc={exc} onAction={handleAction} isFirst={i === 0} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+interface ExceptionRecord {
+  id: number
+  record_type: string
+  record_id: number
+  category: ExceptionCategory
+  dollar_value: string
+  status: 'open' | 'investigating' | 'resolved'
+  resolution_note: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  created_at: string
 }
 
-function ExceptionCard({ exc, onAction, isFirst }: { exc: any, onAction: (id: string, action: 'approve' | 'reject') => void, isFirst: boolean }) {
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+
+async function apiFetch(path: string, options: RequestInit = {}) {
+  const token = process.env.NEXT_PUBLIC_API_TOKEN ?? ''
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers ?? {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(body.detail ?? `API error ${res.status}`)
+  }
+  return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// ExceptionCard
+// ---------------------------------------------------------------------------
+
+function ExceptionCard({
+  exc,
+  onResolve,
+  onReject,
+}: {
+  exc: ExceptionRecord
+  onResolve: (id: number) => void
+  onReject: (id: number) => void
+}) {
+  const [loading, setLoading] = useState<'resolve' | 'reject' | null>(null)
+
+  const categoryLabel: Record<ExceptionCategory, string> = {
+    timing_difference: 'Timing Difference',
+    transaction_error: 'Transaction Error',
+    bank_initiated: 'Bank Initiated',
+    unresolved: 'Unresolved',
+  }
+
+  const categoryColor: Record<ExceptionCategory, string> = {
+    timing_difference: 'var(--info)',
+    transaction_error: 'var(--danger)',
+    bank_initiated: 'var(--warning)',
+    unresolved: 'var(--text-muted)',
+  }
+
   return (
     <div
-      className={`rounded-xl overflow-hidden card-hover ${isFirst ? 'exception-pulse' : ''}`}
+      className="rounded-xl overflow-hidden card-hover"
       style={{
         backgroundColor: 'var(--bg-card)',
         border: '1px solid var(--border)',
@@ -62,174 +91,306 @@ function ExceptionCard({ exc, onAction, isFirst }: { exc: any, onAction: (id: st
       }}
     >
       {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between"
-        style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border)' }}>
+      <div
+        className="px-6 py-4 flex items-center justify-between"
+        style={{
+          backgroundColor: 'var(--bg-elevated)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <div className="flex items-center gap-3">
-          <span className="font-mono font-medium" style={{ color: 'var(--text-secondary)' }}>
+          <span
+            className="font-mono font-medium"
+            style={{ color: 'var(--text-secondary)' }}
+          >
             EXCEPTION #{exc.id}
           </span>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide uppercase"
+          <span
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide uppercase"
             style={{
               backgroundColor: 'var(--danger-soft)',
               border: '1px solid var(--danger)',
               color: 'var(--danger-bright)',
-            }}>
-            {exc.aiExplanation.match_decision}
+            }}
+          >
+            {categoryLabel[exc.category]}
           </span>
         </div>
         <div className="text-sm font-mono" style={{ color: 'var(--text-muted)' }}>
-          {new Date(exc.date).toLocaleString()}
+          {new Date(exc.created_at).toLocaleString()}
         </div>
       </div>
 
       <div className="p-6">
-        {/* Discrepancy View */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div>
-            <h3 className="text-xs uppercase tracking-widest mb-3 flex items-center gap-2"
-              style={{ color: 'var(--text-muted)' }}>
-              <FileText className="w-4 h-4" /> Gateway Transaction
-            </h3>
-            <div className="rounded-lg p-4 font-mono text-sm"
-              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>ID:</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{exc.payload.gateway_transaction.id}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>Date:</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{new Date(exc.payload.gateway_transaction.date).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>Vendor Ref:</span>
-                <span className="truncate ml-4" style={{ color: 'var(--text-secondary)' }}>{exc.payload.gateway_transaction.vendor_reference}</span>
-              </div>
-              <div className="flex justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Gross Amount:</span>
-                <span className="font-bold" style={{ color: 'var(--text-sandy)' }}>₹{exc.payload.gateway_transaction.amount}</span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xs uppercase tracking-widest mb-3 flex items-center gap-2"
-              style={{ color: 'var(--text-muted)' }}>
-              <Activity className="w-4 h-4" /> Bank Settlement (Candidate)
-            </h3>
-            <div className="rounded-lg p-4 font-mono text-sm"
-              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>ID:</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{exc.payload.bank_settlement.id}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>Date:</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{new Date(exc.payload.bank_settlement.date).toLocaleDateString()}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span style={{ color: 'var(--text-muted)' }}>Narration:</span>
-                <span className="truncate ml-4" style={{ color: 'var(--text-secondary)' }} title={exc.payload.bank_settlement.narration}>
-                  {exc.payload.bank_settlement.narration}
-                </span>
-              </div>
-              <div className="flex justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Net Settled:</span>
-                <span className="font-bold" style={{ color: 'var(--text-sandy)' }}>₹{exc.payload.bank_settlement.amount}</span>
-              </div>
-            </div>
+        {/* Value */}
+        <div className="mb-6">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
+            style={{
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-sandy)',
+            }}
+          >
+            Discrepancy Value:{' '}
+            <strong>
+              ₹{parseFloat(exc.dollar_value).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </strong>
           </div>
         </div>
 
-        {/* AI Analysis */}
-        <div className="rounded-lg p-5 mb-8"
-          style={{ backgroundColor: 'var(--info-soft)', border: '1px solid var(--info)' }}>
-          <h3 className="font-medium mb-3 flex items-center gap-2" style={{ color: 'var(--info)' }}>
-            <Zap className="w-4 h-4" /> AI Investigator Analysis
-          </h3>
-          <ul className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            <li><strong style={{ color: 'var(--text-muted)' }}>Root Cause:</strong> {exc.aiExplanation.root_cause}</li>
-            <li><strong style={{ color: 'var(--text-muted)' }}>Reasoning:</strong> {exc.aiExplanation.explanation}</li>
-            <li><strong style={{ color: 'var(--text-muted)' }}>Semantic Confidence:</strong> {(exc.aiExplanation.semantic_confidence * 100).toFixed(1)}%</li>
-            <li>
-              <strong style={{ color: 'var(--text-muted)' }}>Equation Verifier:</strong>
-              {exc.aiExplanation.math_verified ? (
-                <span className="ml-2 inline-flex items-center gap-1" style={{ color: 'var(--success)' }}>
-                  <CheckCircle2 className="w-3 h-3"/> Passed (Math balances exactly)
-                </span>
-              ) : (
-                <span className="ml-2" style={{ color: 'var(--danger-bright)' }}>Failed (Math does not balance)</span>
-              )}
-            </li>
-          </ul>
-        </div>
-
-        {/* Compensating Entry Recommendation */}
-        {exc.aiExplanation.compensating_entry && (exc.aiExplanation.compensating_entry.debit.length > 0 || exc.aiExplanation.compensating_entry.credit.length > 0) && (
-          <div className="mb-8">
-            <h3 className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
-              Proposed Compensating Journal Entry
-            </h3>
-            <div className="rounded-lg p-4 font-mono text-sm overflow-x-auto"
-              style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
-              <table className="w-full text-left">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th className="pb-2 font-medium" style={{ color: 'var(--text-muted)' }}>Account</th>
-                    <th className="pb-2 font-medium text-right" style={{ color: 'var(--text-muted)' }}>Debit</th>
-                    <th className="pb-2 font-medium text-right" style={{ color: 'var(--text-muted)' }}>Credit</th>
-                  </tr>
-                </thead>
-                <tbody style={{ color: 'var(--text-secondary)' }}>
-                  {exc.aiExplanation.compensating_entry.debit.map((d: any, i: number) => (
-                    <tr key={`d-${i}`}>
-                      <td className="py-2 pl-4">{d.account}</td>
-                      <td className="py-2 text-right" style={{ color: 'var(--text-sandy)' }}>₹{d.amount}</td>
-                      <td className="py-2 text-right"></td>
-                    </tr>
-                  ))}
-                  {exc.aiExplanation.compensating_entry.credit.map((c: any, i: number) => (
-                    <tr key={`c-${i}`}>
-                      <td className="py-2 pl-12">{c.account}</td>
-                      <td className="py-2 text-right"></td>
-                      <td className="py-2 text-right" style={{ color: 'var(--text-sandy)' }}>₹{c.amount}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {/* Source record detail */}
+        <div className="rounded-lg p-4 mb-6"
+          style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-2 mb-3" style={{ color: 'var(--text-muted)' }}>
+            <FileText className="w-4 h-4" />
+            <span className="text-xs uppercase tracking-widest font-semibold">Source Record</span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm font-mono">
+            <div className="flex justify-between">
+              <span style={{ color: 'var(--text-muted)' }}>Record Type:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{exc.record_type}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: 'var(--text-muted)' }}>Record ID:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{exc.record_id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: 'var(--text-muted)' }}>Category:</span>
+              <span style={{ color: categoryColor[exc.category] ?? 'var(--text-secondary)' }}>
+                {categoryLabel[exc.category]}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{exc.status}</span>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-6" style={{ borderTop: '1px solid var(--border)' }}>
-          <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Agent Recommendation:</span> {exc.aiExplanation.agent_recommendation}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onAction(exc.id, 'reject')}
-              className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors"
-              style={{
-                border: '1px solid var(--border)',
-                color: 'var(--text-secondary)',
-                backgroundColor: 'transparent',
-              }}
-            >
-              <X className="w-4 h-4" /> Reject / Manual Audit
-            </button>
-            <button
-              onClick={() => onAction(exc.id, 'approve')}
-              className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors"
-              style={{
-                backgroundColor: 'var(--success)',
-                color: '#fff',
-              }}
-            >
-              <Check className="w-4 h-4" /> Approve & Post Entry
-            </button>
-          </div>
+        <div
+          className="flex items-center justify-end gap-3 pt-4"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
+          <button
+            disabled={loading !== null}
+            onClick={() => {
+              setLoading('reject')
+              onReject(exc.id)
+            }}
+            className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            style={{
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              backgroundColor: 'transparent',
+            }}
+          >
+            {loading === 'reject' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <X className="w-4 h-4" />
+            )}
+            Reject / Manual Audit
+          </button>
+          <button
+            disabled={loading !== null}
+            onClick={() => {
+              setLoading('resolve')
+              onResolve(exc.id)
+            }}
+            className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--success)',
+              // WCAG AA 4.5:1 — white on success green passes at 4.7:1
+              color: '#fff',
+            }}
+          >
+            {loading === 'resolve' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            Approve & Resolve
+          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
+export default function ExceptionsPage() {
+  const [exceptions, setExceptions] = useState<ExceptionRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null)
+
+  const loadExceptions = useCallback(async () => {
+    try {
+      setError(null)
+      const data = await apiFetch('/exceptions')
+      setExceptions(data.exceptions ?? [])
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to load exceptions.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadExceptions()
+  }, [loadExceptions])
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const handleResolve = async (id: number) => {
+    try {
+      await apiFetch(`/exceptions/${id}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ resolution_note: 'Approved by reviewer.' }),
+      })
+      setExceptions((prev) => prev.filter((e) => e.id !== id))
+      setToast({ msg: `Exception #${id} approved and resolved.`, kind: 'success' })
+    } catch (err: any) {
+      setToast({ msg: err.message ?? 'Failed to approve.', kind: 'error' })
+    }
+  }
+
+  const handleReject = async (id: number) => {
+    try {
+      await apiFetch(`/exceptions/${id}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ resolution_note: 'Rejected — escalated to manual audit.' }),
+      })
+      setExceptions((prev) => prev.filter((e) => e.id !== id))
+      setToast({ msg: `Exception #${id} rejected and resolved.`, kind: 'success' })
+    } catch (err: any) {
+      setToast({ msg: err.message ?? 'Failed to reject.', kind: 'error' })
+    }
+  }
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-12 px-4">
+        <div className="h-12 w-64 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--bg-elevated)' }} />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-40 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }} />
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto py-32 text-center">
+        <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--danger)' }} />
+        <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+        <button
+          onClick={loadExceptions}
+          className="flex items-center gap-2 mx-auto text-sm px-4 py-2 rounded-lg"
+          style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+        >
+          <RefreshCw className="w-4 h-4" /> Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (exceptions.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto flex flex-col items-center justify-center py-32 text-center">
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+          style={{ backgroundColor: 'var(--success-soft)' }}
+        >
+          <CheckCircle2 className="w-10 h-10" style={{ color: 'var(--success)' }} />
+        </div>
+        <h2 className="text-2xl font-light mb-2" style={{ color: 'var(--text-primary)' }}>
+          Queue Cleared
+        </h2>
+        <p style={{ color: 'var(--text-muted)' }}>
+          All exceptions have been reviewed and resolved.
+        </p>
+        <button
+          onClick={loadExceptions}
+          className="mt-6 flex items-center gap-2 text-sm px-4 py-2 rounded-lg"
+          style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+        >
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {/* Toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-elevated max-w-sm text-sm"
+          style={
+            toast.kind === 'success'
+              ? { backgroundColor: 'var(--success)', color: '#fff' }
+              : { backgroundColor: 'var(--danger)', color: '#fff' }
+          }
+        >
+          {toast.kind === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 shrink-0" />
+          )}
+          {toast.msg}
+        </div>
+      )}
+
+      <div className="max-w-5xl mx-auto flex flex-col gap-8 pb-12 px-4 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h1
+              className="text-3xl font-light mb-2 tracking-tight flex items-center gap-3"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              <ShieldAlert className="w-8 h-8" style={{ color: 'var(--danger-bright)' }} />
+              Human-in-the-Loop Review
+            </h1>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {exceptions.length} open exception{exceptions.length !== 1 ? 's' : ''} requiring manual verification.
+            </p>
+          </div>
+          <button
+            onClick={loadExceptions}
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg transition-colors hover:opacity-80"
+            style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-8">
+          {exceptions.map((exc, i) => (
+            <div key={exc.id} className="anim-stagger" style={{ animationDelay: `${i * 0.1}s` }}>
+              <ExceptionCard
+                exc={exc}
+                onResolve={handleResolve}
+                onReject={handleReject}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   )
 }

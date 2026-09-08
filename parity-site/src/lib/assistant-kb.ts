@@ -29,5 +29,10 @@ export const knowledgeBase: QAPair[] = [
   {
     question: "What is a compensating entry?",
     answer: "A compensating entry is a new ledger row created to correct or adjust a balance, rather than modifying an existing committed row. This ensures the ledger remains append-only and fully auditable."
+  },
+  {
+    question: "What things can I do in this website? What is this app? How do I use it?",
+    answer: "This is Parity, an AI-assisted reconciliation engine. Here, you can monitor the automated matching of transactions in the Dashboard, review and approve uncertain matches (HITL) in the Exception queue, and trace the lifecycle of transactions."
   }
 ];
+

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard, Play, AlertCircle, History, List, Settings, LogOut, Sun, Moon } from 'lucide-react'
-import LivingInvariant from '@/components/LivingInvariant'
+
 import Chatbot from '@/components/Chatbot'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -79,6 +79,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.name}
                 href={item.disabled ? '#' : item.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   item.disabled ? 'opacity-30 cursor-not-allowed pointer-events-none' : ''
                 }`}
@@ -160,10 +161,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Mini Living Invariant */}
-        <div className="sticky top-[64px] z-10">
-          <LivingInvariant mini={true} />
-        </div>
 
         {/* Page Content */}
         <div className="flex-1 overflow-x-hidden p-8">

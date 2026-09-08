@@ -13,8 +13,6 @@ export default function GrainOverlay() {
     if (!ctx) return
 
     const noise3D = createNoise3D()
-    let animationFrameId: number
-    let z = 0
 
     // Small resolution for blocky noise that gets blurred
     const width = 64
@@ -25,32 +23,60 @@ export default function GrainOverlay() {
     const imageData = ctx.createImageData(width, height)
     const data = imageData.data
 
-    const render = () => {
-      z += 0.05 // Advance time
+    let z = 0
+    let animFrameId: number
+    let running = true
+    let lastRenderMs = 0
+    const TARGET_FPS = 5
+    const FRAME_INTERVAL_MS = 1000 / TARGET_FPS   // 200 ms per frame
+
+    const render = (now: number) => {
+      if (!running) return
+
+      animFrameId = requestAnimationFrame(render)
+
+      const elapsed = now - lastRenderMs
+      if (elapsed < FRAME_INTERVAL_MS) return
+      lastRenderMs = now - (elapsed % FRAME_INTERVAL_MS)
+
+      z += 0.05
 
       for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
           const value = noise3D(x * 0.1, y * 0.1, z)
-          // Map -1 to 1 to 0 to 255
+          // Map -1..1 to 0..255
           const brightness = (value + 1) * 128
-          
-          const index = (x + y * width) * 4
-          // Apply to alpha channel, keep rgb black
-          data[index] = 28     // R (from grain-dark)
-          data[index + 1] = 31 // G
-          data[index + 2] = 43 // B
-          data[index + 3] = brightness * 0.08 // Subdued opacity (8% of noise)
+
+          const idx = (x + y * width) * 4
+          data[idx]     = 28   // R
+          data[idx + 1] = 31   // G
+          data[idx + 2] = 43   // B
+          data[idx + 3] = brightness * 0.08  // 8% opacity noise
         }
       }
 
       ctx.putImageData(imageData, 0, 0)
-      animationFrameId = requestAnimationFrame(render)
     }
 
-    render()
+    // Pause when the tab is hidden (Page Visibility API)
+    const handleVisibility = () => {
+      if (document.hidden) {
+        running = false
+        cancelAnimationFrame(animFrameId)
+      } else {
+        running = true
+        lastRenderMs = 0
+        animFrameId = requestAnimationFrame(render)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    animFrameId = requestAnimationFrame(render)
 
     return () => {
-      cancelAnimationFrame(animationFrameId)
+      running = false
+      cancelAnimationFrame(animFrameId)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [])
 
@@ -62,6 +88,7 @@ export default function GrainOverlay() {
         filter: 'blur(1px)',
         opacity: 0.6,
       }}
+      aria-hidden="true"
     />
   )
 }

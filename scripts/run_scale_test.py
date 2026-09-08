@@ -55,13 +55,13 @@ def naive_baseline(gw, bk):
     from datetime import datetime, timedelta
     for g in gw:
         dt = datetime.fromisoformat(g["transaction_ts"]).date()
-        for offset in range(3):
+        for offset in range(4):
             key = (g["expected_net_amount"], str(dt + timedelta(days=offset)))
             if bk_amounts.get(key):
                 matched += 1
                 bk_amounts[key].pop(0)
                 break
-    return (matched / len(gw)) * 100
+    return (matched / len(gw)) * 100 if len(gw) > 0 else 0.0
 
 def run_in_memory_engine(gw, bk, led):
     unmatched_gw = {r["id"] for r in gw}
@@ -259,7 +259,7 @@ def run_scale_test(count: int):
         unique = len(pass_ids)
         seen_matched_ids.update(pass_ids)
         total_unique_matched += unique
-        pct = (unique / total_processed) * 100
+        pct = (unique / total_processed) * 100 if total_processed > 0 else 0.0
         pass_stats.append(f"{lbl.split(' — ')[0]}: {pct:.1f}% ({unique})")
         
     accounted = total_unique_matched + len(exceptions)

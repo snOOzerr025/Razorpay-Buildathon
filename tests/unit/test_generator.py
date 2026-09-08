@@ -76,8 +76,13 @@ class TestBasicGeneration:
     def test_gateway_row_count_matches_count_param(self, tmp_path):
         out, meta = _run_generator(tmp_path, count=100)
         rows = _read_csv(out / "gateway_transactions.csv")
-        assert len(rows) == 100
-        assert meta["totals"]["gateway_transactions"] == 100
+        # `count` is the number of original charge transactions; the generator
+        # appends additional refund rows on top of that, so the CSV has
+        # count + n_refund rows where n_refund = round(count * RATE_REFUND).
+        from synthetic_data.generator import RATE_REFUND
+        expected = 100 + round(100 * RATE_REFUND)
+        assert len(rows) == expected
+        assert meta["totals"]["gateway_transactions"] == expected
 
     def test_ledger_has_entry_for_every_gateway_row(self, tmp_path):
         """Every gateway transaction must have a corresponding ledger entry."""
@@ -172,7 +177,11 @@ class TestAmountDistribution:
     def test_no_negative_amounts(self, tmp_path):
         out, _ = _run_generator(tmp_path, count=300)
         for row in _read_csv(out / "gateway_transactions.csv"):
-            assert Decimal(row["gross_amount"]) > 0, f"Negative gross_amount: {row}"
+            # Refunds have negative gross_amount by design (e.g., '-630.36')
+            if row["status"] == "refunded":
+                assert Decimal(row["gross_amount"]) < 0, f"Refunds must have negative gross_amount: {row}"
+            else:
+                assert Decimal(row["gross_amount"]) > 0, f"Non-refund with negative gross_amount: {row}"
 
 
 # ---------------------------------------------------------------------------

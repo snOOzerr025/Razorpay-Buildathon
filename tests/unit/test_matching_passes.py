@@ -369,6 +369,31 @@ class TestPass3Refund:
         )
         assert result.candidates[0].matched_pass == MatchPass.PASS3_REFUND
 
+    def test_refund_parent_lookup_by_external_transaction_id(self):
+        """Regression: the synthetic generator stores parent_transaction_id as the
+        parent's external_transaction_id (e.g. 'TXNGM0000546785'), not as the
+        integer canonical id. Pass 3 must resolve parents via either path."""
+        parent = _gw(
+            1, "970.00", status="captured", gross="1000.00",
+            ext_id="TXNGM0000546785",
+        )
+        refund = _gw(
+            2, "-970.00", status="refunded", gross="1000.00",
+            parent_id="TXNGM0000546785",   # string, not integer 1
+            ext_id="TXNGM000054R1080",
+        )
+        result = run_pass3(
+            [parent, refund], [], [],
+            unmatched_gateway_ids={1, 2},
+            unmatched_bank_ids=set(),
+            unmatched_ledger_ids=set(),
+        )
+        assert result.matched_count == 1
+        assert result.stats["diag_parent_lookups_succeeded"] == 1
+        # Verify the candidate binds the right parent (id=1, not 2)
+        member_ids = {m.record_id for m in result.candidates[0].members}
+        assert member_ids == {1, 2}
+
 
 # ---------------------------------------------------------------------------
 # Cross-pass: chaining correctness

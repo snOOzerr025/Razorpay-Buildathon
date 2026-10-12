@@ -97,6 +97,8 @@ def _make_engine(url: str, *, echo: bool = False) -> Engine:
         echo=echo,
         # Future mode: all connections use the 2.0-style API
         future=True,
+        # Fast fail when DB is unreachable (3s instead of OS default ~30s)
+        connect_args={"connect_timeout": 3},
     )
 
 

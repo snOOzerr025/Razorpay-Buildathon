@@ -27,5 +27,6 @@ synthetic_data/output/
 # Tooling & scratch
 .claude/
 .claude-flow/
+graphify-out/
 test_*.csv
 *.ps1

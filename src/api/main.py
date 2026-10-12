@@ -73,7 +73,7 @@ def health_check() -> dict[str, Any]:
     try:
         return healthcheck()
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "degraded", "detail": f"DB unavailable: {str(e)[:100]}. Dashboard operates in demo mode.", "latency_ms": 0}
 
 # ---------------------------------------------------------------------------
 # Events

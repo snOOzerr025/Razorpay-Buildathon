@@ -37,7 +37,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
     """
     Verify the static bearer token.
     For buildathon scope, we check against an API_KEY environment variable.
-    In local dev mode, defaults to accepting 'dev_token_123' or unauthenticated dev requests.
+    In local dev mode, accept 'dev_token_123' as a convenience — but an
+    Authorization header must still be sent (prevents accidental unauth access).
     """
     expected_token = os.environ.get("API_KEY", "dev_token_123")
     if credentials and credentials.credentials:
@@ -48,10 +49,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials | None = Depends(secu
             detail="Invalid authentication token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if not os.environ.get("API_KEY"):
-        return "dev_user"
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Missing authentication token",
+        detail="Not authenticated",
         headers={"WWW-Authenticate": "Bearer"},
     )

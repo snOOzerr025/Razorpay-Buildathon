@@ -13,11 +13,21 @@ import { AuditView } from './components/AuditView'
 import { UploadView } from './components/UploadView'
 import { ChatPanel } from './components/ChatPanel'
 import { ToastContainer } from './components/Toast'
+import { AuthView } from './components/AuthView'
 
 const API_BASE = 'http://localhost:8000/api/v1'
 const AUTH_TOKEN = 'dev_token_123'
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('parity_user_session')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [mode, setMode] = useState('benchmark') // 'live' | 'benchmark'
   const [healthStatus, setHealthStatus] = useState('ok')
@@ -44,6 +54,17 @@ export default function App() {
   const removeToast = useCallback(id => {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
+
+  const handleLoginSuccess = userSession => {
+    setCurrentUser(userSession)
+    addToast('Authentication Verified', `Welcome back, ${userSession.name} (${userSession.role})`, 'success')
+  }
+
+  const handleSignOut = () => {
+    localStorage.removeItem('parity_user_session')
+    setCurrentUser(null)
+    addToast('Session Ended', 'Signed out of reconciliation portal', 'info')
+  }
 
   // Telemetry Fetcher (Syncs with backend if reachable)
   const syncWithBackend = useCallback(async (silent = false) => {
@@ -287,6 +308,16 @@ export default function App() {
   const pendingMatchesCount = matches.filter(m => m.status?.includes('pending')).length
   const openExceptionsCount = exceptions.filter(e => e.status === 'open').length
 
+  // If user is not logged in, render the AuthView portal
+  if (!currentUser) {
+    return (
+      <div className="app-container">
+        <AuthView onLoginSuccess={handleLoginSuccess} />
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
+    )
+  }
+
   return (
     <div className="app-container">
       {/* ─── Navigation Bar ─── */}
@@ -301,6 +332,8 @@ export default function App() {
         mode={mode}
         setMode={setMode}
         onQuickRun={() => setActiveTab('upload')}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       />
 
       {/* ─── Active View Tab ─── */}

@@ -11,6 +11,8 @@ export function Navbar({
   mode,
   setMode,
   onQuickRun,
+  currentUser,
+  onSignOut,
 }) {
   return (
     <header className="navbar-container">
@@ -143,6 +145,24 @@ export function Navbar({
           >
             <span>▶</span> Run Engine
           </button>
+
+          {/* User Profile Pill & Sign Out */}
+          {currentUser && (
+            <div className="user-profile-pill" title={`Logged in as ${currentUser.name} (${currentUser.org})`}>
+              <span className="user-profile-avatar">{currentUser.avatar || '👤'}</span>
+              <div className="user-profile-meta">
+                <span className="user-profile-name">{currentUser.name}</span>
+                <span className="user-profile-role">{currentUser.role}</span>
+              </div>
+              <button
+                className="btn-signout"
+                onClick={onSignOut}
+                title="Sign out of reconciliation portal"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </nav>
     </header>

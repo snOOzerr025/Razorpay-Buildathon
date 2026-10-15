@@ -13,38 +13,46 @@ export function Navbar({
   onQuickRun,
   currentUser,
   onSignOut,
+  onBackToLanding,
 }) {
+  const isLiveConnected = mode === 'live' && healthStatus === 'ok'
+
   return (
     <header className="navbar-container">
       <nav className="navbar" aria-label="Main Navigation">
-        {/* Brand Section */}
+        {/* ─── Left: Brand & Perspective ─── */}
         <div className="navbar-brand-wrapper">
-          <div className="navbar-brand" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
+          <div
+            className="navbar-brand"
+            onClick={() => setActiveTab('dashboard')}
+            style={{ cursor: 'pointer' }}
+            title="Parity Reconciliation Workstation"
+          >
             <div className="brand-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
             </div>
             <div className="brand-text">
-              <span className="brand-title">Parity<span className="brand-slash">/</span><span className="brand-sub">recon</span></span>
-              <span className="brand-tag">AI FINANCE CONTROLLER</span>
+              <span className="brand-title">
+                Parity<span className="brand-slash">/</span><span className="brand-sub">recon</span>
+              </span>
             </div>
           </div>
 
-          {/* Telemetry & Mode Indicator */}
-          <div className="telemetry-bar">
-            <div className={`status-pill ${healthStatus === 'ok' ? 'status-live' : 'status-demo'}`}>
-              <span className="status-ping" />
-              <span className="status-text">{mode === 'live' ? 'Live API' : '110k Benchmark'}</span>
-            </div>
-            <div className="telemetry-item" title="Engine sustained execution throughput">
-              <span className="telemetry-label">SPEED:</span>
-              <span className="telemetry-val">2,850 rec/s</span>
-            </div>
-          </div>
+          {onBackToLanding && (
+            <button
+              type="button"
+              className="navbar-story-link"
+              onClick={onBackToLanding}
+              title="Return to DeSo-inspired cinematic storytelling page"
+            >
+              <span>← Story Mode</span>
+            </button>
+          )}
         </div>
 
-        {/* Navigation Tabs */}
+        {/* ─── Center: Segmented Navigation Tabs ─── */}
         <div className="navbar-nav" role="tablist">
           <button
             role="tab"
@@ -52,7 +60,6 @@ export function Navbar({
             className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            <span className="nav-tab-icon">📊</span>
             <span>Dashboard</span>
           </button>
 
@@ -62,10 +69,9 @@ export function Navbar({
             className={`nav-tab ${activeTab === 'matches' ? 'active' : ''}`}
             onClick={() => setActiveTab('matches')}
           >
-            <span className="nav-tab-icon">⚡</span>
             <span>Matches</span>
             {pendingCount > 0 && (
-              <span className="nav-tab-badge badge-pending" title={`${pendingCount} matches pending review`}>
+              <span className="nav-tab-badge badge-pending">
                 {pendingCount}
               </span>
             )}
@@ -77,10 +83,9 @@ export function Navbar({
             className={`nav-tab ${activeTab === 'exceptions' ? 'active' : ''}`}
             onClick={() => setActiveTab('exceptions')}
           >
-            <span className="nav-tab-icon">⚠</span>
             <span>Exceptions</span>
             {exceptionCount > 0 && (
-              <span className="nav-tab-badge badge-exception" title={`${exceptionCount} open exceptions`}>
+              <span className="nav-tab-badge badge-exception">
                 {exceptionCount}
               </span>
             )}
@@ -92,7 +97,6 @@ export function Navbar({
             className={`nav-tab ${activeTab === 'audit' ? 'active' : ''}`}
             onClick={() => setActiveTab('audit')}
           >
-            <span className="nav-tab-icon">📜</span>
             <span>Audit Log</span>
           </button>
 
@@ -102,27 +106,21 @@ export function Navbar({
             className={`nav-tab ${activeTab === 'upload' ? 'active' : ''}`}
             onClick={() => setActiveTab('upload')}
           >
-            <span className="nav-tab-icon">🚀</span>
-            <span>Upload &amp; Reconcile</span>
+            <span>Batch Studio</span>
           </button>
         </div>
 
-        {/* Action Controls */}
+        {/* ─── Right: Status & Actions ─── */}
         <div className="navbar-actions">
-          {/* Mode Switcher Toggle */}
-          <div className="mode-toggle" title="Toggle between Live Backend and 110k Calibrated Scale Test mode">
-            <button
-              className={`mode-btn ${mode === 'live' ? 'active' : ''}`}
-              onClick={() => setMode('live')}
-            >
-              Live
-            </button>
-            <button
-              className={`mode-btn ${mode === 'benchmark' ? 'active' : ''}`}
-              onClick={() => setMode('benchmark')}
-            >
-              Benchmark
-            </button>
+          {/* Unified Clean Status Pill */}
+          <div
+            className={`navbar-status-badge ${isLiveConnected ? 'status-live' : 'status-benchmark'}`}
+            title={isLiveConnected ? 'Live backend connected at localhost:8000' : 'Calibrated 110,377 benchmark replay dataset (Mutations locked)'}
+            onClick={() => setMode(mode === 'live' ? 'benchmark' : 'live')}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="status-dot" />
+            <span className="status-label">{isLiveConnected ? 'Live Engine' : 'Benchmark Replay'}</span>
           </div>
 
           {/* Sync Refresh Button */}
@@ -132,27 +130,26 @@ export function Navbar({
             title="Refresh reconciliation telemetry"
             aria-label="Refresh telemetry"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
             </svg>
           </button>
 
-          {/* Trigger Reconcile Button */}
+          {/* Quick Run Button */}
           <button
             className="btn-quick-run"
             onClick={onQuickRun}
-            title="Run 5-pass reconciliation engine"
+            title="Open batch runner and execute reconciliation"
           >
-            <span>▶</span> Run Engine
+            <span style={{ fontSize: '0.8rem' }}>▶</span> Run Batch
           </button>
 
-          {/* User Profile Pill & Sign Out */}
+          {/* User Profile Pill */}
           {currentUser && (
-            <div className="user-profile-pill" title={`Logged in as ${currentUser.name} (${currentUser.org})`}>
+            <div className="user-profile-pill" title={`Logged in as ${currentUser.name} (${currentUser.role})`}>
               <span className="user-profile-avatar">{currentUser.avatar || '👤'}</span>
               <div className="user-profile-meta">
                 <span className="user-profile-name">{currentUser.name}</span>
-                <span className="user-profile-role">{currentUser.role}</span>
               </div>
               <button
                 className="btn-signout"

@@ -14,15 +14,61 @@ import { UploadView } from './components/UploadView'
 import { ChatPanel } from './components/ChatPanel'
 import { ToastContainer } from './components/Toast'
 import { AuthView } from './components/AuthView'
+import { LandingPage } from './landing/LandingPage'
+import { Workstation3DCanvas } from './components/Workstation3DCanvas'
 
 const API_BASE = 'http://localhost:8000/api/v1'
 const AUTH_TOKEN = 'dev_token_123'
 
+import Lenis from 'lenis'
+
 export default function App() {
+  // Two-Zone View Mode: 'landing' (cinematic DeSo route) vs 'app' (financial workstation)
+  const [viewMode, setViewMode] = useState(() => {
+    return window.location.hash.includes('app') ? 'app' : 'landing'
+  })
+
+  useEffect(() => {
+    const handleHash = () => {
+      setViewMode(window.location.hash.includes('app') ? 'app' : 'landing')
+    }
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [])
+
+  // Smooth Lenis Momentum Scroll
+  useEffect(() => {
+    if (viewMode !== 'app') return
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      orientation: 'vertical',
+      smoothWheel: true,
+    })
+
+    function raf(time) {
+      lenis.raf(time)
+      requestAnimationFrame(raf)
+    }
+    const rafId = requestAnimationFrame(raf)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      lenis.destroy()
+    }
+  }, [viewMode])
+
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('parity_user_session')
-      return saved ? JSON.parse(saved) : null
+      return saved ? JSON.parse(saved) : {
+        name: 'Priya Sharma',
+        email: 'priya.sharma@razorpay.demo',
+        role: 'Lead Finance Controller',
+        badge: 'Tier 3 Approval Authority',
+        avatar: '👩‍💼',
+        org: 'Razorpay Enterprise Ops',
+      }
     } catch {
       return null
     }
@@ -71,10 +117,12 @@ export default function App() {
     if (!silent) setIsRefreshing(true)
     try {
       // 1. Healthcheck
+      let isHealthy = false
       try {
         const hRes = await fetch('http://localhost:8000/health', { signal: AbortSignal.timeout(2000) })
         if (hRes.ok) {
           setHealthStatus('ok')
+          isHealthy = true
         } else {
           setHealthStatus('degraded')
         }
@@ -83,7 +131,7 @@ export default function App() {
       }
 
       // If in live mode, attempt to load live state
-      if (mode === 'live') {
+      if (mode === 'live' && isHealthy) {
         const [mRes, matchRes, excRes, auditRes] = await Promise.allSettled([
           fetch(`${API_BASE}/dashboard/metrics`, { signal: AbortSignal.timeout(3000) }),
           fetch(`${API_BASE}/matches?limit=100`, { credentials: 'omit', signal: AbortSignal.timeout(3000) }),
@@ -128,171 +176,210 @@ export default function App() {
     syncWithBackend(true)
   }, [syncWithBackend])
 
-  // ────────── Match Actions ──────────
+  // ────────── Match Actions (Supports Live Backend + Interactive Benchmark Replay) ──────────
   const handleApproveMatch = async (matchId, note = 'Approved via dashboard') => {
     setIsProcessing(true)
+    const reviewerActor = currentUser?.name ? `user:${currentUser.name.toLowerCase().replace(/\s+/g, '_')}` : 'user:auditor_priya'
+
     try {
-      if (mode === 'live') {
-        await fetch(`${API_BASE}/matches/${matchId}/approve`, {
+      if (mode === 'live' && healthStatus === 'ok') {
+        const res = await fetch(`${API_BASE}/matches/${matchId}/approve`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${AUTH_TOKEN}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ note }),
+          body: JSON.stringify({ note, actor: reviewerActor }),
         })
+        if (!res.ok) throw new Error(`Server returned ${res.status}`)
       }
-    } catch {
-      // Gracefully commit locally
+
+      setMatches(prev =>
+        prev.map(m => (m.id === matchId ? { ...m, status: 'confirmed' } : m))
+      )
+
+      const newAudit = {
+        id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
+        entity_type: 'match',
+        entity_id: matchId,
+        action: 'approved',
+        actor: reviewerActor,
+        occurred_at: new Date().toISOString(),
+        rationale: {
+          action: 'human_approval',
+          tier: 'hitl',
+          note,
+          decision_timestamp: new Date().toISOString(),
+        },
+      }
+      setAuditLog(prev => [newAudit, ...prev])
+
+      addToast('Match Approved & Posted', `Match ${matchId} verified. Immutable audit entry recorded.`, 'success')
+    } catch (err) {
+      addToast('Approval Failed', `Could not reach backend: ${err.message}`, 'error')
+    } finally {
+      setIsProcessing(false)
     }
-
-    // Update match state
-    setMatches(prev =>
-      prev.map(m => (m.id === matchId ? { ...m, status: 'confirmed' } : m))
-    )
-
-    // Write audit log entry (AGENTS.md Rule 3 compliance)
-    const newAudit = {
-      id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
-      entity_type: 'match',
-      entity_id: matchId,
-      action: 'approved',
-      actor: 'user:auditor_priya',
-      occurred_at: new Date().toISOString(),
-      rationale: {
-        action: 'human_approval',
-        tier: 'hitl',
-        note,
-        decision_timestamp: new Date().toISOString(),
-      },
-    }
-    setAuditLog(prev => [newAudit, ...prev])
-
-    addToast('Match Approved & Posted', `Match ${matchId} verified. Immutable audit entry recorded.`, 'success')
-    setIsProcessing(false)
   }
 
   const handleRejectMatch = async (matchId, note = 'Rejected via dashboard') => {
     setIsProcessing(true)
+    const reviewerActor = currentUser?.name ? `user:${currentUser.name.toLowerCase().replace(/\s+/g, '_')}` : 'user:auditor_priya'
+
     try {
-      if (mode === 'live') {
-        await fetch(`${API_BASE}/matches/${matchId}/reject`, {
+      if (mode === 'live' && healthStatus === 'ok') {
+        const res = await fetch(`${API_BASE}/matches/${matchId}/reject`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${AUTH_TOKEN}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ reason: note }),
+          body: JSON.stringify({ reason: note, actor: reviewerActor }),
         })
+        if (!res.ok) throw new Error(`Server returned ${res.status}`)
       }
-    } catch {
-      // Local fallback
+
+      setMatches(prev =>
+        prev.map(m => (m.id === matchId ? { ...m, status: 'rejected' } : m))
+      )
+
+      const newAudit = {
+        id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
+        entity_type: 'match',
+        entity_id: matchId,
+        action: 'rejected',
+        actor: reviewerActor,
+        occurred_at: new Date().toISOString(),
+        rationale: {
+          action: 'human_rejection',
+          tier: 'hitl',
+          reason: note,
+          routed_to: 'exception_queue',
+        },
+      }
+      setAuditLog(prev => [newAudit, ...prev])
+
+      addToast('Match Rejected', `Match ${matchId} routed to Exception Queue.`, 'warning')
+    } catch (err) {
+      addToast('Rejection Failed', `Could not reach backend: ${err.message}`, 'error')
+    } finally {
+      setIsProcessing(false)
     }
-
-    setMatches(prev =>
-      prev.map(m => (m.id === matchId ? { ...m, status: 'rejected' } : m))
-    )
-
-    const newAudit = {
-      id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
-      entity_type: 'match',
-      entity_id: matchId,
-      action: 'rejected',
-      actor: 'user:auditor_priya',
-      occurred_at: new Date().toISOString(),
-      rationale: {
-        action: 'human_rejection',
-        tier: 'hitl',
-        reason: note,
-        routed_to: 'exception_queue',
-      },
-    }
-    setAuditLog(prev => [newAudit, ...prev])
-
-    addToast('Match Rejected', `Match ${matchId} routed to Exception Queue.`, 'warning')
-    setIsProcessing(false)
   }
 
-  // ────────── Exception Actions ──────────
+  // ────────── Exception Actions (Supports Live Backend + Interactive Benchmark Replay) ──────────
   const handleResolveException = async (excId, note = 'Resolved via dashboard') => {
     setIsProcessing(true)
+    const reviewerActor = currentUser?.name ? `user:${currentUser.name.toLowerCase().replace(/\s+/g, '_')}` : 'user:auditor_priya'
+
     try {
-      if (mode === 'live') {
-        await fetch(`${API_BASE}/exceptions/${excId}/resolve`, {
+      if (mode === 'live' && healthStatus === 'ok') {
+        const res = await fetch(`${API_BASE}/exceptions/${excId}/resolve`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${AUTH_TOKEN}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ resolution_note: note }),
+          body: JSON.stringify({ resolution_note: note, actor: reviewerActor }),
         })
+        if (!res.ok) throw new Error(`Server returned ${res.status}`)
       }
-    } catch {
-      // Local fallback
+
+      setExceptions(prev =>
+        prev.map(e => (e.id === excId ? { ...e, status: 'resolved', resolved_at: new Date().toISOString() } : e))
+      )
+
+      const newAudit = {
+        id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
+        entity_type: 'exception',
+        entity_id: excId,
+        action: 'resolved',
+        actor: reviewerActor,
+        occurred_at: new Date().toISOString(),
+        rationale: {
+          action: 'human_resolution',
+          tier: 'hitl',
+          note,
+        },
+      }
+      setAuditLog(prev => [newAudit, ...prev])
+
+      addToast('Exception Resolved', `Exception ${excId} resolved. Forensics logged.`, 'success')
+    } catch (err) {
+      addToast('Resolution Failed', err.message, 'error')
+    } finally {
+      setIsProcessing(false)
     }
-
-    setExceptions(prev =>
-      prev.map(e => (e.id === excId ? { ...e, status: 'resolved', resolved_at: new Date().toISOString() } : e))
-    )
-
-    const newAudit = {
-      id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
-      entity_type: 'exception',
-      entity_id: excId,
-      action: 'exception_resolved',
-      actor: 'user:auditor_priya',
-      occurred_at: new Date().toISOString(),
-      rationale: {
-        action: 'exception_resolved',
-        note,
-      },
-    }
-    setAuditLog(prev => [newAudit, ...prev])
-
-    addToast('Exception Resolved', `Exception ${excId} resolved. Forensics logged.`, 'success')
-    setIsProcessing(false)
   }
 
   const handleCompensateException = async (excId, amount, note = 'Compensating ledger entry') => {
     setIsProcessing(true)
+    const reviewerActor = currentUser?.name ? `user:${currentUser.name.toLowerCase().replace(/\s+/g, '_')}` : 'user:auditor_priya'
+
     try {
-      if (mode === 'live') {
-        await fetch(`${API_BASE}/exceptions/${excId}/compensate`, {
+      if (mode === 'live' && healthStatus === 'ok') {
+        const res = await fetch(`${API_BASE}/exceptions/${excId}/compensate`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${AUTH_TOKEN}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ amount: Number(amount), note }),
+          body: JSON.stringify({ amount: Number(amount), note, actor: reviewerActor }),
         })
+        if (!res.ok) throw new Error(`Server returned ${res.status}`)
       }
-    } catch {
-      // Local fallback
+
+      setExceptions(prev =>
+        prev.map(e => (e.id === excId ? { ...e, status: 'resolved', resolved_at: new Date().toISOString() } : e))
+      )
+
+      const newAudit = {
+        id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
+        entity_type: 'compensating_journal',
+        entity_id: excId,
+        action: 'compensated',
+        actor: reviewerActor,
+        occurred_at: new Date().toISOString(),
+        rationale: {
+          action: 'compensating_entry',
+          amount: Number(amount),
+          rule: 'AGENTS_MD_RULE_2_NON_DESTRUCTIVE_MUTATION',
+          note,
+        },
+      }
+      setAuditLog(prev => [newAudit, ...prev])
+
+      addToast('Compensating Entry Committed', `Adjusted ₹${amount} without mutating posted records (Rule 2).`, 'success')
+    } catch (err) {
+      addToast('Compensate Failed', err.message, 'error')
+    } finally {
+      setIsProcessing(false)
     }
-
-    setExceptions(prev =>
-      prev.map(e => (e.id === excId ? { ...e, status: 'resolved', resolved_at: new Date().toISOString() } : e))
-    )
-
-    const newAudit = {
-      id: Math.max(...auditLog.map(a => Number(a.id) || 0), 100) + 1,
-      entity_type: 'compensating_entry',
-      entity_id: excId,
-      action: 'compensated',
-      actor: 'user:auditor_priya',
-      occurred_at: new Date().toISOString(),
-      rationale: {
-        action: 'compensating_entry_created',
-        amount_adjustment: amount,
-        note,
-        compliance: 'SOX_AGENTS_MD_RULE_2_NON_DESTRUCTIVE',
-      },
-    }
-    setAuditLog(prev => [newAudit, ...prev])
-
-    addToast('Compensating Entry Committed', `Adjusted ₹${amount} without mutating posted records (Rule 2).`, 'success')
-    setIsProcessing(false)
   }
+
+  // ────────── Keyboard Shortcuts for HITL Review ──────────
+  useEffect(() => {
+    if (viewMode !== 'app' || activeTab !== 'matches') return
+
+    const handleKeyDown = e => {
+      // Don't trigger if user is typing in an input or textarea
+      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+
+      const firstPending = matches.find(m => m.status?.includes('pending'))
+      if (!firstPending) return
+
+      if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault()
+        handleApproveMatch(firstPending.id, 'Approved via keyboard shortcut [A]')
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        handleRejectMatch(firstPending.id, 'Rejected via keyboard shortcut [R]')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [viewMode, activeTab, matches, mode, healthStatus])
 
   // ────────── Upload Run Complete ──────────
   const handleRunComplete = summary => {
@@ -308,10 +395,45 @@ export default function App() {
   const pendingMatchesCount = matches.filter(m => m.status?.includes('pending')).length
   const openExceptionsCount = exceptions.filter(e => e.status === 'open').length
 
-  // If user is not logged in, render the AuthView portal
+  // ─── ROUTE 1: DeSo-Inspired Cinematic Landing Page ───
+  if (viewMode === 'landing') {
+    return (
+      <>
+        <LandingPage
+          onLaunchApp={() => {
+            setViewMode('app')
+            window.location.hash = 'app'
+          }}
+          isLive={mode === 'live' && healthStatus === 'ok'}
+          metrics={metrics}
+        />
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </>
+    )
+  }
+
+  // ─── ROUTE 2: Operational Financial Workstation (/app) ───
   if (!currentUser) {
     return (
       <div className="app-container">
+        <div style={{ padding: '16px 24px' }}>
+          <button
+            onClick={() => {
+              setViewMode('landing')
+              window.location.hash = ''
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-gold, #ffda59)',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+              fontSize: '0.85rem',
+            }}
+          >
+            ← Back to Cinematic Story
+          </button>
+        </div>
         <AuthView onLoginSuccess={handleLoginSuccess} />
         <ToastContainer toasts={toasts} onClose={removeToast} />
       </div>
@@ -319,8 +441,11 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      {/* ─── Navigation Bar ─── */}
+    <div className="app-container" style={{ position: 'relative', minHeight: '100vh' }}>
+      {/* ─── 3D Ambient Financial Ledger Background Mesh ─── */}
+      <Workstation3DCanvas />
+
+      {/* ─── Navigation Bar with Cinematic Switcher ─── */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -334,9 +459,13 @@ export default function App() {
         onQuickRun={() => setActiveTab('upload')}
         currentUser={currentUser}
         onSignOut={handleSignOut}
+        onBackToLanding={() => {
+          setViewMode('landing')
+          window.location.hash = ''
+        }}
       />
 
-      {/* ─── Active View Tab ─── */}
+      {/* ─── Active Workstation Tab ─── */}
       <main id="main-content">
         {activeTab === 'dashboard' && (
           <DashboardView
@@ -380,7 +509,7 @@ export default function App() {
         )}
       </main>
 
-      {/* ─── Parity Assistant Floating Widget ─── */}
+      {/* ─── Trace-Grounded Parity Copilot Floating Widget ─── */}
       <button
         className="chat-fab"
         onClick={() => setChatOpen(!chatOpen)}

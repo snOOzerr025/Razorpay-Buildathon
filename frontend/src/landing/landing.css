@@ -1,26 +1,32 @@
 /* ============================================================================
-   PARITY RECON ENGINE × DESO DESIGN SYSTEM
-   Cosmic Obsidian Palette • Studio Freight-Style 3D Kinetic Typography
+   PARITY RECON ENGINE × MATCHA CLOUD & HONEYED LINEN DESIGN SYSTEM
+   Deep Cypress Obsidian • Dewy Matcha Mist • Honeyed Amber Glow • Oat Linen Bisque
    ============================================================================ */
 
 :root {
-  /* Studio Freight / DeSo Color Tokens */
-  --deso-black: #000818;
-  --deso-black-surface: #040d21;
-  --deso-black-elevated: #09142e;
-  --deso-white: #fffdf5;
-  --deso-white-dim: rgba(255, 253, 245, 0.7);
-  --deso-white-faint: rgba(255, 253, 245, 0.2);
-  --deso-second-white: #cdd6df;
-  --deso-gray: #a0a8ac;
-  --deso-dark-gray: #687178;
+  /* Deep Cypress Forest & Botanical Obsidian Surfaces */
+  --deso-black: #08120b;               /* Deep Cypress Obsidian */
+  --deso-black-surface: #0d1a11;       /* Rich Dark Botanical Surface */
+  --deso-black-elevated: #132419;      /* Elevated Cypress Deck */
+  
+  /* Oat Linen Bisque Typography & Accents */
+  --deso-white: #f4f2e9;               /* Oat Linen Bisque */
+  --deso-white-dim: rgba(244, 242, 233, 0.72);
+  --deso-white-faint: rgba(244, 242, 233, 0.16);
+  --deso-second-white: #d7d5c7;        /* Soft Linen Secondary */
+  --deso-gray: #9ba495;                /* Shaded Lichen Gray */
+  --deso-dark-gray: #626d5d;           /* Deep Forest Sage Gray */
 
-  /* Accent Highlight Colors */
-  --deso-yellow: #ffda59;          /* Razorpay Amber Gold */
-  --deso-blue: #2e9dff;            /* Settlement Network Blue */
-  --deso-blue-primary: #0085ff;    /* Deep Sapphire Glow */
-  --deso-green: #0bf191;           /* Reconciled Mint */
-  --deso-fire: #db4718;            /* Exception Flame */
+  /* Primary Accent: Luminous Honey Amber */
+  --deso-yellow: #d69e46;              /* Honey Gold Accent */
+  --deso-yellow-bright: #e5aa4a;       /* Solar Honey Flare */
+  --deso-yellow-glow: rgba(214, 158, 70, 0.35);
+
+  /* Secondary Accent: Shaded Matcha Leaf & Dew Mint */
+  --deso-blue: #7ca37c;                /* Frosted Matcha Leaf */
+  --deso-blue-primary: #4e7a51;        /* Deep Botanical Matcha Canopy */
+  --deso-green: #34d399;               /* Dewy Reconciled Mint */
+  --deso-fire: #e0684b;                /* Persimmon Amber Exception */
 
   /* Typography Tokens */
   --font-display: 'Syne', sans-serif;
@@ -63,47 +69,47 @@
   height: 100vh;
   z-index: 0;
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 /* Ambient Deep Atmospheric Glows */
 .deso-ambient-glow {
   position: fixed;
-  width: 600px;
-  height: 600px;
+  width: 640px;
+  height: 640px;
   border-radius: 50%;
   pointer-events: none;
   z-index: 0;
-  filter: blur(120px);
-  opacity: 0.22;
+  filter: blur(140px);
+  opacity: 0.24;
 }
 
 .glow-blue {
   top: -150px;
   left: -150px;
-  background: radial-gradient(circle, var(--deso-blue-primary), transparent 70%);
+  background: radial-gradient(circle, rgba(78, 122, 81, 0.45), transparent 70%);
 }
 
 .glow-gold {
-  bottom: 10%;
+  bottom: 8%;
   right: -100px;
-  background: radial-gradient(circle, var(--deso-yellow), transparent 70%);
-  opacity: 0.14;
+  background: radial-gradient(circle, rgba(214, 158, 70, 0.32), transparent 70%);
+  opacity: 0.22;
 }
 
 /* Studio Freight Blur-Box & Pill Primitives */
 .deso-blur-box {
-  background: rgba(0, 8, 24, 0.65);
+  background: rgba(13, 26, 17, 0.65);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 253, 245, 0.14);
+  border: 1px solid rgba(244, 242, 233, 0.12);
   border-radius: 16px;
   position: relative;
   transition: border-color 0.3s var(--ease-deso), transform 0.3s var(--ease-deso);
 }
 
 .deso-blur-box:hover {
-  border-color: rgba(255, 253, 245, 0.32);
+  border-color: rgba(244, 242, 233, 0.32);
 }
 
 .deso-pill {
@@ -112,9 +118,9 @@
   gap: 8px;
   padding: 6px 16px;
   border-radius: 9999px;
-  background: rgba(0, 8, 24, 0.6);
+  background: rgba(13, 26, 17, 0.65);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 253, 245, 0.16);
+  border: 1px solid rgba(244, 242, 233, 0.16);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   letter-spacing: 0.05em;
@@ -134,7 +140,7 @@
 
 .deso-pill-gold:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(255, 218, 89, 0.3);
+  box-shadow: 0 8px 25px rgba(214, 158, 70, 0.35);
 }
 
 .deso-pill-gold::after {
@@ -206,7 +212,7 @@
   color: var(--deso-yellow);
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(255, 218, 89, 0.12);
+  background: rgba(214, 158, 70, 0.14);
   margin-left: 6px;
 }
 
@@ -217,10 +223,10 @@
   gap: 8px;
   padding: 4px 6px 4px 12px;
   border-radius: 9999px;
-  background: rgba(0, 8, 24, 0.85);
+  background: rgba(8, 18, 11, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 253, 245, 0.18);
+  border: 1px solid rgba(244, 242, 233, 0.18);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
@@ -285,8 +291,8 @@
   font-style: italic;
   font-size: 0.95rem;
   font-weight: 600;
-  background: rgba(255, 218, 89, 0.12);
-  border: 1px solid rgba(255, 218, 89, 0.25);
+  background: rgba(214, 158, 70, 0.14);
+  border: 1px solid rgba(214, 158, 70, 0.3);
 }
 
 @media (max-width: 800px) {
@@ -302,22 +308,24 @@
   gap: 8px;
   padding: 8px 18px;
   border-radius: 9999px;
-  background: var(--deso-yellow);
+  background: var(--deso-white);
   color: var(--deso-black);
   font-family: var(--font-sans);
   font-weight: 700;
   font-size: 0.85rem;
   text-decoration: none;
   cursor: pointer;
-  border: none;
+  border: 1px solid rgba(214, 158, 70, 0.35);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: transform 0.2s var(--ease-deso), box-shadow 0.2s var(--ease-deso);
+  box-shadow: 0 4px 16px rgba(214, 158, 70, 0.2);
+  transition: transform 0.2s var(--ease-deso), box-shadow 0.2s var(--ease-deso), background-color 0.2s;
 }
 
 .nav-workstation-cta:hover {
   transform: scale(1.04);
-  box-shadow: 0 6px 20px rgba(255, 218, 89, 0.35);
+  background: #ffffff;
+  box-shadow: 0 6px 24px rgba(214, 158, 70, 0.38);
 }
 
 /* Hero Section (Chapter 01: Genesis) */
@@ -373,6 +381,9 @@
   text-transform: none;
   color: var(--deso-yellow);
   padding: 0 8px;
+  background: linear-gradient(135deg, var(--deso-yellow-bright) 0%, var(--deso-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero-subtitle {
@@ -396,9 +407,9 @@
 }
 
 .cta-primary {
-  padding: 14px 32px;
+  padding: 14px 34px;
   border-radius: 9999px;
-  background: var(--deso-yellow);
+  background: var(--deso-white);
   color: var(--deso-black);
   font-weight: 700;
   font-size: 1rem;
@@ -406,21 +417,25 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 10px 30px rgba(255, 218, 89, 0.25);
-  transition: transform 0.25s var(--ease-deso), box-shadow 0.25s var(--ease-deso);
+  box-shadow: 0 10px 30px rgba(214, 158, 70, 0.28), 0 0 0 1px rgba(214, 158, 70, 0.3);
+  transition: transform 0.25s var(--ease-deso), box-shadow 0.25s var(--ease-deso), background-color 0.25s;
+  cursor: pointer;
+  border: none;
 }
 
 .cta-primary:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 40px rgba(255, 218, 89, 0.4);
+  background: #ffffff;
+  box-shadow: 0 14px 40px rgba(214, 158, 70, 0.45), 0 0 20px rgba(214, 158, 70, 0.35);
 }
 
 .cta-secondary {
   padding: 14px 28px;
   border-radius: 9999px;
-  background: rgba(255, 253, 245, 0.05);
+  background: rgba(244, 242, 233, 0.05);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 253, 245, 0.2);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(214, 158, 70, 0.35);
   color: var(--deso-white);
   font-weight: 600;
   font-size: 1rem;
@@ -428,51 +443,117 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background 0.25s, border-color 0.25s, transform 0.25s;
 }
 
 .cta-secondary:hover {
-  background: rgba(255, 253, 245, 0.1);
-  border-color: rgba(255, 253, 245, 0.4);
+  background: rgba(214, 158, 70, 0.12);
+  border-color: var(--deso-yellow);
+  transform: translateY(-2px);
 }
 
 /* Hero Telemetry Pill Highlights */
 .hero-stats-deck {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-  max-width: 980px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  max-width: 1000px;
   width: 100%;
   margin: 0 auto;
 }
 
 .hero-stat-card {
-  padding: 16px 20px;
+  padding: 20px 22px;
   text-align: left;
-  background: rgba(0, 8, 24, 0.6);
+  background: rgba(13, 26, 17, 0.65);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 253, 245, 0.12);
-  border-radius: 14px;
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(244, 242, 233, 0.12);
+  border-radius: 16px;
+  transition: transform 0.3s var(--ease-deso), border-color 0.3s var(--ease-deso), box-shadow 0.3s var(--ease-deso);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hero-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(214, 158, 70, 0.4);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(78, 122, 81, 0.15);
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.stat-trend-arrow {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--deso-yellow);
+  font-weight: 700;
+  line-height: 1;
 }
 
 .stat-label {
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  color: var(--deso-dark-gray);
+  color: var(--deso-gray);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
+.stat-val-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
 .stat-val {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.6rem;
+  font-size: 1.65rem;
   color: var(--deso-white);
   letter-spacing: -0.02em;
+}
+
+.stat-visual-sparkline {
+  margin: 8px 0 4px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.stat-mini-ring {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-visual-bars {
+  height: 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin: 8px 0 4px;
+}
+
+.mini-bar {
+  width: 6px;
+  border-radius: 2px;
+  background: rgba(244, 242, 233, 0.3);
+  transition: height 0.3s var(--ease-deso), background-color 0.2s;
+}
+
+.hero-stat-card:hover .mini-bar {
+  background: var(--deso-yellow);
 }
 
 .stat-sub {
@@ -537,20 +618,22 @@
 .pass-card {
   padding: 24px;
   border-radius: 16px;
-  background: rgba(0, 8, 24, 0.75);
+  background: rgba(13, 26, 17, 0.72);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 253, 245, 0.12);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(244, 242, 233, 0.12);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   min-height: 260px;
-  transition: transform 0.3s var(--ease-deso), border-color 0.3s var(--ease-deso);
+  transition: transform 0.3s var(--ease-deso), border-color 0.3s var(--ease-deso), box-shadow 0.3s var(--ease-deso);
   cursor: pointer;
 }
 
 .pass-card:hover {
   transform: translateY(-6px);
-  border-color: rgba(255, 218, 89, 0.4);
+  border-color: rgba(214, 158, 70, 0.45);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 20px rgba(78, 122, 81, 0.15);
 }
 
 .pass-badge {
@@ -585,17 +668,17 @@
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--deso-dark-gray);
-  border-top: 1px solid rgba(255, 253, 245, 0.08);
+  border-top: 1px solid rgba(244, 242, 233, 0.08);
   padding-top: 12px;
   margin-top: 16px;
   display: flex;
   justify-content: space-between;
 }
 
-/* Comparison Studio Freight Protocol Card */
+/* Comparison Protocol Card */
 .protocol-comparison-card {
-  background: rgba(9, 20, 46, 0.5);
-  border: 1px solid rgba(255, 253, 245, 0.15);
+  background: rgba(19, 36, 25, 0.55);
+  border: 1px solid rgba(244, 242, 233, 0.14);
   border-radius: 20px;
   padding: 36px;
   display: grid;
@@ -671,8 +754,10 @@
 .telemetry-main-panel {
   padding: 32px;
   border-radius: 20px;
-  background: rgba(0, 8, 24, 0.7);
-  border: 1px solid rgba(255, 253, 245, 0.14);
+  background: rgba(13, 26, 17, 0.72);
+  border: 1px solid rgba(244, 242, 233, 0.14);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .telemetry-metric-large {
@@ -693,15 +778,17 @@
 .exception-breakdown-card {
   padding: 20px;
   border-radius: 14px;
-  background: rgba(0, 8, 24, 0.6);
-  border: 1px solid rgba(255, 253, 245, 0.1);
+  background: rgba(13, 26, 17, 0.65);
+  border: 1px solid rgba(244, 242, 233, 0.1);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .breakdown-bar {
   height: 8px;
   width: 100%;
   border-radius: 4px;
-  background: rgba(255, 253, 245, 0.1);
+  background: rgba(244, 242, 233, 0.1);
   display: flex;
   overflow: hidden;
   margin: 14px 0 10px;
@@ -722,9 +809,9 @@
   gap: 12px;
   padding: 8px 16px;
   border-radius: 9999px;
-  background: rgba(0, 8, 24, 0.85);
+  background: rgba(8, 18, 11, 0.88);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 253, 245, 0.18);
+  border: 1px solid rgba(244, 242, 233, 0.18);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
   cursor: pointer;
   transition: transform 0.25s var(--ease-deso);
@@ -761,7 +848,7 @@
 
 .layer-mid {
   top: 4px;
-  background: rgba(0, 8, 24, 0.8);
+  background: rgba(8, 18, 11, 0.8);
   border-color: var(--deso-white-dim);
   z-index: 1;
 }
@@ -779,7 +866,7 @@
   font-weight: 600;
 }
 
-/* Minimal Electric Yellow Scroll Indicator */
+/* Minimal Honey Amber Scroll Indicator */
 .deso-scroll-indicator {
   position: fixed;
   top: 0;
@@ -787,7 +874,7 @@
   width: 3px;
   height: 100vh;
   z-index: 99;
-  background: rgba(255, 253, 245, 0.05);
+  background: rgba(244, 242, 233, 0.06);
   pointer-events: none;
 }
 

@@ -68,20 +68,26 @@ export function ShaderGradientCanvas({ scrollProgress = 0 }) {
       uniform float uTime;
 
       void main() {
-        // DeSo & Parity Palette: Obsidian (#000818), Deep Sapphire (#0085ff), Electric Gold (#ffda59)
-        vec3 colorBlack = vec3(0.0, 0.031, 0.094);       // #000818
-        vec3 colorBlue  = vec3(0.0, 0.521, 1.0);         // #0085ff
-        vec3 colorGold  = vec3(1.0, 0.855, 0.349);       // #ffda59
-        vec3 colorCyan  = vec3(0.18, 0.615, 1.0);        // #2e9dff
+        // Matcha Cloud & Honeyed Linen System:
+        // Deep Cypress (#08120b), Shaded Matcha Mist (#4e7a51 / #7ca37c), Honey Amber Gold (#d69e46), Oat Linen (#f4f2e9)
+        vec3 colorCypress = vec3(0.031, 0.071, 0.043);    // #08120b Deep Cypress
+        vec3 colorMatcha  = vec3(0.306, 0.478, 0.318);    // #4e7a51 Shaded Matcha Mist
+        vec3 colorHoney   = vec3(0.839, 0.620, 0.275);    // #d69e46 Honey Amber Gold
+        vec3 colorLinen   = vec3(0.957, 0.949, 0.914);    // #f4f2e9 Oat Linen Bisque
 
         float mixFactor = smoothstep(-1.8, 2.2, vElevation);
-        vec3 baseGrad = mix(colorBlack, colorBlue * 0.45, mixFactor);
+        vec3 baseGrad = mix(colorCypress, colorMatcha * 0.55, mixFactor);
         
-        float goldHighlight = smoothstep(1.0, 2.5, vElevation + sin(uTime * 0.8 + vUv.x * 3.0) * 0.5);
-        vec3 finalColor = mix(baseGrad, colorGold * 0.65, goldHighlight * 0.35);
+        // Fluid honey amber crests on wave peaks
+        float honeyHighlight = smoothstep(0.8, 2.4, vElevation + sin(uTime * 0.7 + vUv.x * 3.2) * 0.5);
+        vec3 intermediate = mix(baseGrad, colorHoney * 0.75, honeyHighlight * 0.42);
 
-        float edgeFade = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
-        gl_FragColor = vec4(finalColor, 0.65 * edgeFade);
+        // Soft oat linen dewy highlights on highest wave tips
+        float linenTip = smoothstep(1.6, 2.7, vElevation + cos(uTime * 0.5 + vUv.y * 2.8) * 0.4);
+        vec3 finalColor = mix(intermediate, colorLinen, linenTip * 0.22);
+
+        float edgeFade = smoothstep(0.0, 0.22, vUv.y) * smoothstep(1.0, 0.78, vUv.y);
+        gl_FragColor = vec4(finalColor, 0.72 * edgeFade);
       }
     `
 
@@ -107,21 +113,21 @@ export function ShaderGradientCanvas({ scrollProgress = 0 }) {
     const nodeGroup = new THREE.Group()
     scene.add(nodeGroup)
 
-    const nodeMatGold = new THREE.MeshBasicMaterial({ color: 0xffda59, wireframe: true, transparent: true, opacity: 0.75 })
-    const nodeMatBlue = new THREE.MeshBasicMaterial({ color: 0x0085ff, wireframe: true, transparent: true, opacity: 0.8 })
-    const nodeMatMint = new THREE.MeshBasicMaterial({ color: 0x0bf191, wireframe: true, transparent: true, opacity: 0.75 })
+    const nodeMatGold = new THREE.MeshBasicMaterial({ color: 0xd69e46, wireframe: true, transparent: true, opacity: 0.85 })
+    const nodeMatBlue = new THREE.MeshBasicMaterial({ color: 0x5a8c60, wireframe: true, transparent: true, opacity: 0.85 })
+    const nodeMatMint = new THREE.MeshBasicMaterial({ color: 0xdde0d2, wireframe: true, transparent: true, opacity: 0.85 })
 
-    // Node A: Gateway (Icosahedron)
+    // Node A: Gateway (Icosahedron - Honey Amber)
     const nodeGateway = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 1), nodeMatGold)
     nodeGateway.position.set(-8.5, 3.2, 0)
     nodeGroup.add(nodeGateway)
 
-    // Node B: Settlement Bank (Dodecahedron)
+    // Node B: Settlement Bank (Dodecahedron - Matcha Mist)
     const nodeBank = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4), nodeMatBlue)
     nodeBank.position.set(8.5, 3.2, 0)
     nodeGroup.add(nodeBank)
 
-    // Node C: Merchant Ledger (Octahedron)
+    // Node C: Merchant Ledger (Octahedron - Oat Linen)
     const nodeLedger = new THREE.Mesh(new THREE.OctahedronGeometry(2.0), nodeMatMint)
     nodeLedger.position.set(0, -6.0, 2)
     nodeGroup.add(nodeLedger)
@@ -153,10 +159,10 @@ export function ShaderGradientCanvas({ scrollProgress = 0 }) {
 
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3))
     const particleMat = new THREE.PointsMaterial({
-      color: 0xffda59,
-      size: 0.22,
+      color: 0xd69e46,
+      size: 0.24,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
     })
     const particlePoints = new THREE.Points(particleGeo, particleMat)
     nodeGroup.add(particlePoints)

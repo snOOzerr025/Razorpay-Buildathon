@@ -415,28 +415,16 @@ export default function App() {
   // ─── ROUTE 2: Operational Financial Workstation (/app) ───
   if (!currentUser) {
     return (
-      <div className="app-container">
-        <div style={{ padding: '16px 24px' }}>
-          <button
-            onClick={() => {
-              setViewMode('landing')
-              window.location.hash = ''
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--accent-gold, #ffda59)',
-              cursor: 'pointer',
-              fontFamily: 'monospace',
-              fontSize: '0.85rem',
-            }}
-          >
-            ← Back to Cinematic Story
-          </button>
-        </div>
-        <AuthView onLoginSuccess={handleLoginSuccess} />
+      <>
+        <AuthView
+          onLoginSuccess={handleLoginSuccess}
+          onBackToLanding={() => {
+            setViewMode('landing')
+            window.location.hash = ''
+          }}
+        />
         <ToastContainer toasts={toasts} onClose={removeToast} />
-      </div>
+      </>
     )
   }
 
